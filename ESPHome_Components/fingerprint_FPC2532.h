@@ -45,6 +45,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   void setup() override;
   void dump_config() override;
   void set_reset_pin(GPIOPin *reset_pin) { this->reset_pin_ = reset_pin; }
+  void set_irq_pin(GPIOPin *irq_pin) { this->irq_pin_ = irq_pin; }
   void set_sensor_power_pin(GPIOPin *sensor_power_pin) { this->sensor_power_pin_ = sensor_power_pin; }
   void set_password(const std::string &password) { this->password_ = password; }
   void set_enroll_timeout_s(uint32_t period_s) { this->enroll_timeout_ms_ = period_s * 1000; }
@@ -161,6 +162,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   void sensor_wakeup_();
   GPIOPin *reset_pin_{nullptr};
   GPIOPin *sensor_power_pin_{nullptr};
+  GPIOPin *irq_pin_{nullptr};
   sensor::Sensor *status_sensor_{nullptr};
   text_sensor::TextSensor *text_status_sensor_{nullptr};
   text_sensor::TextSensor *unique_id_sensor_{nullptr};
