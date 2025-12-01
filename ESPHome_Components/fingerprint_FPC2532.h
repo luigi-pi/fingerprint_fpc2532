@@ -159,8 +159,6 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
 
   bool has_power_pin_ = false;
   void sensor_wakeup_();
-  const uint8_t RST_PIN_ =
-      26;  // RST_N pin -evaluate if add it on init_py to set via yaml like sensing_pin and sensor_power_pin
   GPIOPin *reset_pin_{nullptr};
   GPIOPin *sensor_power_pin_{nullptr};
   sensor::Sensor *status_sensor_{nullptr};
