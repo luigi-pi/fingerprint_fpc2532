@@ -4,7 +4,7 @@
 # `fingerprint_fpc2532`
 
 **ESPHome integration for the FPC2532 fingerprint sensor (ESP32)**
-This repository provides a custom ESPHome component for interfacing the FPC2532 fingerprint module, enabling secure and reliable fingerprint authentication for home-automation projects.
+#### **This repository provides a custom ESPHome component for interfacing the FPC2532 fingerprint module, enabling secure and reliable fingerprint authentication for home-automation projects.**
 ---
 
 ## ⭐ Why another fingerprint sensor for ESPHome?
