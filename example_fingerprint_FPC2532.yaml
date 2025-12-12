@@ -9,7 +9,9 @@ esphome:
   name: fingerprintfpc2532
 
 esp32:
-  board: nodemcu-32s
+  variant: esp32
+  framework:
+    type: esp-idf
 
 wifi:
   ssid: !secret my_ssid
@@ -246,9 +248,10 @@ sensor:
       accuracy_decimals: 0
 
     enrollment_feedback:
+    #This is added as yaml in order to add the possibility of easily translate it in different languages
       id: num_enrollment_feedback
       internal: true
-      name: "Enrollment Feedback (Code)"
+      name: "Enrollment Feedback (textual)"
       on_value:
         then:
           - lambda: |-
@@ -310,5 +313,6 @@ output:
   - platform: ledc
     id: output_blue
     pin: GPIOXX
+
 
 
