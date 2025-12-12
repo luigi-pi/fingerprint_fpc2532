@@ -289,7 +289,7 @@ template<typename... Ts> class EnrollmentAction : public Action<Ts...>, public P
  public:
   TEMPLATABLE_VALUE(uint16_t, finger_id)
 
-  void play(Ts... x) override {
+  void play(const Ts&... x) override {
     auto finger_id = this->finger_id_.value(x...);
     this->parent_->enroll_request = true;
     if (finger_id) {
@@ -308,7 +308,7 @@ template<typename... Ts> class DeleteAction : public Action<Ts...>, public Paren
  public:
   TEMPLATABLE_VALUE(uint16_t, finger_id)
 
-  void play(Ts... x) override {
+  void play(const Ts&... x) override {
     auto finger_id = this->finger_id_.value(x...);
     this->parent_->delete_request = true;
     this->parent_->id_type_delete_request.type = ID_TYPE_SPECIFIED;
@@ -320,7 +320,7 @@ template<typename... Ts> class DeleteAction : public Action<Ts...>, public Paren
 
 template<typename... Ts> class DeleteAllAction : public Action<Ts...>, public Parented<FingerprintFPC2532Component> {
  public:
-  void play(Ts... x) override {
+  void play(const Ts&... x) override {
     this->parent_->delete_request = true;
     this->parent_->id_type_delete_request.type = ID_TYPE_ALL;
     this->parent_->id_type_delete_request.id = 0;
