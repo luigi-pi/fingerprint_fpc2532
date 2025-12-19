@@ -50,13 +50,16 @@ The hardware allows simple up/down/left/right swipe navigation (future feature).
 ## 🧩 Component Overview
 
 The sensor communicates via UART (default `921600 baud`).
-Pin `CONFIG` (pin 1) must be tied HIGH (3.3 V) for UART operation.
+* Pin `CONFIG` (pin 1) must be tied HIGH (3.3 V, through a resistor, e.g. 24kOhm) for UART operation.
+* Pin 3.3V (pin 10) must be tied to the 3.3V power supply (check datasheet for optional caps and TVS diodes)
+* Pin Rx (pin 3) and Tx (pin 2) must be connected to ESP Tx and Rx (swapped: sensor Tx to ESP Rx and vice versa)
+* for optional pins see table below
 
 ### Optional pins
 
 | Pin                  | Purpose                                                                                                                                                                 |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **sensor_power_pin** | Wakes up the sensor before sending a command. Requires `stop_mode_uart: true`. Recommended **not** to use because sensor consumes only **22 µA** in finger-detect mode. |
+| **sensor_power_pin** | Wakes up the sensor before sending a command. Requires `stop_mode_uart: true`. Recommended **not** to use because sensor consumes only **22 µA (0.7mW)**  in finger-detect mode. Connected to sys-WU (pin 8 of fpc sensor). To disable SYS-WU must be connected to 3.3V (through a resistor, e.g. 24kOhm) |
 | **reset_pin**        | Hardware reset of the sensor.                                                                                                                                           |
 | **irq_pin**          | Wakes up the ESP32 when the sensor detects a finger. Useful for low-power designs (sleep mode not yet implemented, can be added via YAML).                                                     |
 
