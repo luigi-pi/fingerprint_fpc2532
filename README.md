@@ -60,8 +60,8 @@ The sensor communicates via UART (default `921600 baud`).
 | Pin                  | Purpose                                                                                                                                                                 |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **sensor_power_pin** | Wakes up the sensor before sending a command. Requires `stop_mode_uart: true`. Recommended **not** to use because sensor consumes only **22 µA (0.7mW)**  in finger-detect mode. Connected to sys-WU (pin 8 of fpc sensor). To disable SYS-WU must be connected to 3.3V (through a resistor, e.g. 24kOhm) |
-| **reset_pin**        | Hardware reset of the sensor.                                                                                                                                           |
-| **irq_pin**          | Wakes up the ESP32 when the sensor detects a finger. Useful for low-power designs (sleep mode not yet implemented, can be added via YAML).                                                     |
+| **reset_pin**        | Hardware reset of the sensor. Pin 9 of the sensor. Connect the pin to an ESP32 GPIO with an external pull-up resistor (e.g. 22 kΩ) to 3.3 V.|
+| **irq_pin**          | Wakes up the ESP32 when the sensor detects a finger. Useful for low-power designs (sleep mode not yet implemented, can be added via YAML).  Pin 4 of the sensor, to be connected to ESP32 RTC GPIO through a resistor e.g. 2.2kOhm (to avoid issues if set as output pin  by mistake )                                                |
 
 ---
 
