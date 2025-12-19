@@ -51,8 +51,9 @@ The hardware allows simple up/down/left/right swipe navigation (future feature).
 
 The sensor communicates via UART (default `921600 baud`).
 * Pin `CONFIG` (pin 1) must be tied HIGH (3.3 V, through a resistor, e.g. 24kOhm) for UART operation.
-* Pin 3.3V (pin 10) must be tied to the 3.3V power supply (check datasheet for optional caps and TVS diodes)
-* Pin Rx (pin 3) and Tx (pin 2) must be connected to ESP Tx and Rx (swapped: sensor Tx to ESP Rx and vice versa)
+* Pin 3.3V (pin 10) must be tied to the 3.3V power supply (check datasheet for optional caps and TVS diodes).
+* Pin Rx (pin 3) and Tx (pin 2) must be connected to ESP Tx and Rx (swapped: sensor Tx to ESP Rx and vice versa).
+* Pin 11 and 12 must be connected to ESP32 GND.
 * for optional pins see table below
 
 ### Optional pins
