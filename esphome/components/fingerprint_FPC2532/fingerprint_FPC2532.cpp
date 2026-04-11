@@ -232,8 +232,8 @@ void FingerprintFPC2532Component::update() {
 }
 
 void FingerprintFPC2532Component::setup() {
-  this->hal_reset_device();
   this->fpc_hal_init();
+  this->hal_reset_device();
   // this->fpc_cmd_abort();
   this->password_verified_ = false;
   this->device_ready_ = false;
@@ -301,7 +301,7 @@ void FingerprintFPC2532Component::process_state(void) {
             ESP_LOGI(TAG, "Device authenticated.");
             this->password_verified_ = true;
           } else if (this->password_ == INITIAL_PASSWORD) {
-            ESP_LOGW(TAG, "Device password must be reset. Add ID to YAML and reinstall.");
+            ESP_LOGW(TAG, "Device password must be reset. Add unique ID to YAML and reinstall.");
             this->password_verified_ = false;
             return;
           } else {
@@ -799,6 +799,16 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_host_sample_handle_rx_data(vo
 
   if (result != FPC_RESULT_OK) {
     ESP_LOGE(TAG, "Failed to handle RX data, error %d", result);
+    // Publish numeric error state if status sensor exists
+    if (this->status_sensor_ != nullptr) {
+      // Use max 16-bit value as error indicator
+      this->status_sensor_->publish_state(0xFFFF);
+    }
+
+    // Publish descriptive error message if text sensor exists
+    if (this->text_status_sensor_ != nullptr) {
+      this->text_status_sensor_->publish_state("COMMUNICATION ERROR / HARDWARE TAMPERING");
+    }
   }
 
   return result;
@@ -1050,7 +1060,13 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_identify(fpc::fpc_cmd_h
   }
 
   if (id_res->match == IDENTIFY_RESULT_MATCH && this->last_finger_id_sensor_ != nullptr) {
-    this->last_finger_id_sensor_->publish_state(id_res->tpl_id.id);
+    std::string payload = "{";
+    payload += "\"id\":" + std::to_string(id_res->tpl_id.id) + ",";
+    payload += "\"ts\":" + std::to_string(millis());
+    payload += "}";
+
+    this->last_finger_id_sensor_->publish_state(payload);
+    // this->last_finger_id_sensor_->publish_state(id_res->tpl_id.id);
   }
 
   if (id_res->match == IDENTIFY_RESULT_MATCH) {
@@ -1185,6 +1201,7 @@ HAL FUNCTIONS DEFINITONS
 */
 fpc::fpc_result_t FingerprintFPC2532Component::fpc_hal_init(void) {
   if (this->reset_pin_ != nullptr) {
+    this->reset_pin_->pin_mode(gpio::FLAG_OUTPUT | gpio::FLAG_OPEN_DRAIN);
     this->reset_pin_->setup();
     this->reset_pin_->digital_write(true);
   }
