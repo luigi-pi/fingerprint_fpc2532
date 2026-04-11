@@ -45,8 +45,8 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   void setup() override;
   void dump_config() override;
   void set_reset_pin(GPIOPin *reset_pin) { this->reset_pin_ = reset_pin; }
-  void set_irq_pin(GPIOPin *irq_pin) { this->irq_pin_ = irq_pin; }
   void set_sensor_power_pin(GPIOPin *sensor_power_pin) { this->sensor_power_pin_ = sensor_power_pin; }
+  void set_irq_pin(GPIOPin *irq_pin) { this->irq_pin_ = irq_pin; }
   void set_password(const std::string &password) { this->password_ = password; }
   void set_enroll_timeout_s(uint32_t period_s) { this->enroll_timeout_ms_ = period_s * 1000; }
   void set_lockout_time_s(uint8_t lockout_time_s) { this->lockout_time_s_ = lockout_time_s; }
@@ -75,7 +75,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
     this->enrollment_feedback_ = enrollment_feedback;
   }
   void set_num_scans_sensor(sensor::Sensor *num_scans) { this->num_scans_ = num_scans; }
-  void set_last_finger_id_sensor(sensor::Sensor *last_finger_id_sensor) {
+  void set_last_finger_id_sensor(text_sensor::TextSensor *last_finger_id_sensor) {
     this->last_finger_id_sensor_ = last_finger_id_sensor;
   }
   void set_enrolling_binary_sensor(binary_sensor::BinarySensor *enrolling_binary_sensor) {
@@ -180,7 +180,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
 
   // sensor::Sensor *capacity_sensor_{nullptr};
   // sensor::Sensor *security_level_sensor_{nullptr};
-  sensor::Sensor *last_finger_id_sensor_{nullptr};
+  text_sensor::TextSensor *last_finger_id_sensor_{nullptr};
   // sensor::Sensor *last_confidence_sensor_{nullptr};
   binary_sensor::BinarySensor *enrolling_binary_sensor_{nullptr};
   binary_sensor::BinarySensor *uart_irq_before_tx_binary_sensor_{nullptr};
@@ -289,7 +289,7 @@ template<typename... Ts> class EnrollmentAction : public Action<Ts...>, public P
  public:
   TEMPLATABLE_VALUE(uint16_t, finger_id)
 
-  void play(const Ts&... x) override {
+  void play(const Ts &...x) override {
     auto finger_id = this->finger_id_.value(x...);
     this->parent_->enroll_request = true;
     if (finger_id) {
@@ -308,7 +308,7 @@ template<typename... Ts> class DeleteAction : public Action<Ts...>, public Paren
  public:
   TEMPLATABLE_VALUE(uint16_t, finger_id)
 
-  void play(const Ts&... x) override {
+  void play(const Ts &...x) override {
     auto finger_id = this->finger_id_.value(x...);
     this->parent_->delete_request = true;
     this->parent_->id_type_delete_request.type = ID_TYPE_SPECIFIED;
@@ -320,7 +320,7 @@ template<typename... Ts> class DeleteAction : public Action<Ts...>, public Paren
 
 template<typename... Ts> class DeleteAllAction : public Action<Ts...>, public Parented<FingerprintFPC2532Component> {
  public:
-  void play(const Ts&... x) override {
+  void play(const Ts &...x) override {
     this->parent_->delete_request = true;
     this->parent_->id_type_delete_request.type = ID_TYPE_ALL;
     this->parent_->id_type_delete_request.id = 0;
@@ -332,7 +332,7 @@ template<typename... Ts> class DeleteAllAction : public Action<Ts...>, public Pa
 template<typename... Ts>
 class CancelEnrollmentAction : public Action<Ts...>, public Parented<FingerprintFPC2532Component> {
  public:
-  void play(Ts... x) override {
+  void play(const Ts &...x) override {
     this->parent_->fpc_cmd_abort();
     this->parent_->fpc_cmd_system_config_get_request(FPC_SYS_CFG_TYPE_CUSTOM);  // DBUG only, delete this line
     this->parent_->app_state = APP_STATE_WAIT_ABORT;
