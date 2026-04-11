@@ -5,6 +5,7 @@ import esphome.config_validation as cv
 from esphome.const import (
     CONF_FINGER_ID,
     CONF_ID,
+    CONF_IRQ_PIN,
     CONF_ON_ENROLLMENT_DONE,
     CONF_ON_ENROLLMENT_FAILED,
     CONF_ON_ENROLLMENT_SCAN,
@@ -14,7 +15,6 @@ from esphome.const import (
     CONF_ON_FINGER_SCAN_UNMATCHED,
     CONF_PASSWORD,
     CONF_RESET_PIN,
-    CONF_IRQ_PIN,
     CONF_TRIGGER_ID,
 )
 
@@ -103,7 +103,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(FingerprintFPC2532Component),
             cv.Optional(CONF_SENSOR_POWER_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_IRQ_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_IRQ_PIN): pins.gpio_input_pin_schema,
             cv.Optional(
                 CONF_ENROLL_TIMEOUT, default="5s"
             ): cv.positive_time_period_seconds,
@@ -229,13 +229,13 @@ async def to_code(config):
         sensor_power_pin = await cg.gpio_pin_expression(config[CONF_SENSOR_POWER_PIN])
         cg.add(var.set_sensor_power_pin(sensor_power_pin))
 
-    if CONF_RESET_PIN in config:
-        reset_pin = await cg.gpio_pin_expression(config[CONF_RESET_PIN])
-        cg.add(var.set_reset_pin(reset_pin))
-
     if CONF_IRQ_PIN in config:
         irq_pin = await cg.gpio_pin_expression(config[CONF_IRQ_PIN])
         cg.add(var.set_irq_pin(irq_pin))
+
+    if CONF_RESET_PIN in config:
+        reset_pin = await cg.gpio_pin_expression(config[CONF_RESET_PIN])
+        cg.add(var.set_reset_pin(reset_pin))
 
     if CONF_ENROLL_TIMEOUT in config:
         enroll_timeout_s = config[CONF_ENROLL_TIMEOUT]
@@ -254,7 +254,11 @@ async def to_code(config):
     for conf in config.get(CONF_ON_FINGER_SCAN_UNMATCHED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
-
+    """
+    for conf in config.get(CONF_ON_FINGER_SCAN_INVALID, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [(cg.uint16, "capture_error")], conf)
+    """
     for conf in config.get(CONF_ON_ENROLLMENT_SCAN, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(cg.uint16, "finger_id")], conf)
@@ -278,6 +282,7 @@ async def to_code(config):
         },
         key=CONF_FINGER_ID,
     ),
+    synchronous=False,
 )
 async def fingerprint_FPC2532_enroll_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -299,6 +304,7 @@ async def fingerprint_FPC2532_enroll_to_code(config, action_id, template_arg, ar
             cv.GenerateID(): cv.use_id(FingerprintFPC2532Component),
         }
     ),
+    synchronous=False,
 )
 async def fingerprint_FPC2532_cancel_enroll_to_code(
     config, action_id, template_arg, args
@@ -318,6 +324,7 @@ async def fingerprint_FPC2532_cancel_enroll_to_code(
         },
         key=CONF_FINGER_ID,
     ),
+    synchronous=False,
 )
 async def fingerprint_FPC2532_delete_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
