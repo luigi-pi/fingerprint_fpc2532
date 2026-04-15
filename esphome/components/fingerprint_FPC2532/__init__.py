@@ -76,7 +76,7 @@ FingerScanUnmatchedTrigger = fingerprint_FPC2532_ns.class_(
 )
 
 FingerScanInvalidTrigger = fingerprint_FPC2532_ns.class_(
-    "FingerScanInvalidTrigger", automation.Trigger.template(uint16_t)
+    "FingerScanInvalidTrigger", automation.Trigger.template(cg.uint16)
 )
 
 EnrollmentScanTrigger = fingerprint_FPC2532_ns.class_(
