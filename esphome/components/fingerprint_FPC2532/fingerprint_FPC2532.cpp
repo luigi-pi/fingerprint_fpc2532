@@ -927,6 +927,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_status(fpc::fpc_cmd_hdr
       this->finger_scan_start_callback_.call();
     }
     if ((this->device_state_ & STATE_IDENTIFY) && (status->app_fail_code != FPC_RESULT_OK)) {
+      ESP_LOGW(TAG, "Finger scan invalid: %s (%d)", fpc_result_to_string(status->app_fail_code), status->app_fail_code);
       this->finger_scan_invalid_callback_.call(status->app_fail_code);
     }
   }
@@ -1014,7 +1015,8 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_enroll_status(fpc::fpc_
   if (status->feedback == ENROLL_FEEDBACK_REJECT_LOW_QUALITY ||
       status->feedback == ENROLL_FEEDBACK_REJECT_LOW_COVERAGE ||
       status->feedback == ENROLL_FEEDBACK_REJECT_LOW_MOBILITY || status->feedback == ENROLL_FEEDBACK_REJECT_OTHER) {
-    this->finger_scan_invalid_callback_.call(status->feedback);
+        ESP_LOGW(TAG, "Enrollment scan rejected: %s (%d)", fpc_result_to_string(status->feedback), status->feedback);
+        this->finger_scan_invalid_callback_.call(status->feedback);
   }
 
   if (status->feedback == ENROLL_FEEDBACK_DONE) {
