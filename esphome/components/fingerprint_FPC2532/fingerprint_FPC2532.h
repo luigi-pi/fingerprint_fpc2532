@@ -114,27 +114,28 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   // request public functions
   fpc::fpc_result_t fpc_cmd_abort(void);
   fpc::fpc_result_t fpc_cmd_system_config_get_request(uint8_t type);
+
   //  Callbacks
-  void add_on_finger_scan_matched_callback(std::function<void(uint16_t, uint16_t)> callback) {
-    this->finger_scan_matched_callback_.add(std::move(callback));
+  template<typename F> void add_on_finger_scan_matched_callback(F &&callback) {
+    this->finger_scan_matched_callback_.add(std::forward<F>(callback));
   }
-  void add_on_finger_scan_unmatched_callback(std::function<void()> callback) {
-    this->finger_scan_unmatched_callback_.add(std::move(callback));
+  template<typename F> void add_on_finger_scan_unmatched_callback(F &&callback) {
+    this->finger_scan_unmatched_callback_.add(std::forward<F>(callback));
   }
-  void add_on_finger_scan_start_callback(std::function<void()> callback) {
-    this->finger_scan_start_callback_.add(std::move(callback));
+  template<typename F> void add_on_finger_scan_start_callback(F &&callback) {
+    this->finger_scan_start_callback_.add(std::forward<F>(callback));
   }
-  void add_on_finger_scan_invalid_callback(std::function<void(uint16_t)> callback) {
-    this->finger_scan_invalid_callback_.add(std::move(callback));
+  template<typename F> void add_on_finger_scan_invalid_callback(F &&callback) {
+    this->finger_scan_invalid_callback_.add(std::forward<F>(callback));
   }
-  void add_on_enrollment_scan_callback(std::function<void(uint16_t)> callback) {
-    this->enrollment_scan_callback_.add(std::move(callback));
+  template<typename F> void add_on_enrollment_scan_callback(F &&callback) {
+    this->enrollment_scan_callback_.add(std::forward<F>(callback));
   }
-  void add_on_enrollment_done_callback(std::function<void(uint16_t)> callback) {
-    this->enrollment_done_callback_.add(std::move(callback));
+  template<typename F> void add_on_enrollment_done_callback(F &&callback) {
+    this->enrollment_done_callback_.add(std::forward<F>(callback));
   }
-  void add_on_enrollment_failed_callback(std::function<void(uint16_t)> callback) {
-    this->enrollment_failed_callback_.add(std::move(callback));
+  template<typename F> void add_on_enrollment_failed_callback(F &&callback) {
+    this->enrollment_failed_callback_.add(std::forward<F>(callback));
   }
 
  protected:
