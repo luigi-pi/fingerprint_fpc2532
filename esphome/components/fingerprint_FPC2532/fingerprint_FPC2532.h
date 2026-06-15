@@ -19,6 +19,7 @@ namespace esphome {
 namespace fingerprint_FPC2532 {
 const uint8_t MAX_NUMBER_OF_TEMPLATES = 30;
 static const std::string INITIAL_PASSWORD = "0";
+static constexpr uint32_t CMD_RESPONSE_TIMEOUT_MS = 1000;
 typedef enum {
   APP_STATE_WAIT_READY = 0,
   APP_STATE_WAIT_VERSION,
@@ -114,7 +115,6 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   // request public functions
   fpc::fpc_result_t fpc_cmd_abort(void);
   fpc::fpc_result_t fpc_cmd_system_config_get_request(uint8_t type);
-
   //  Callbacks
   template<typename F> void add_on_finger_scan_matched_callback(F &&callback) {
     this->finger_scan_matched_callback_.add(std::forward<F>(callback));
@@ -146,7 +146,8 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   std::string unique_id_;
   std::string password_;
   uint32_t delay_until_ = 0;  // for non-blocking delays
-  uint16_t enroll_id;
+  uint32_t cmd_sent_at_{0};
+  uint16_t enroll_id{0};
   uint32_t enroll_idle_time_{0};
   uint32_t enroll_timeout_ms_ = UINT32_MAX;
   uint8_t lockout_time_s_ = UINT8_MAX;
@@ -335,7 +336,6 @@ class CancelEnrollmentAction : public Action<Ts...>, public Parented<Fingerprint
  public:
   void play(const Ts &...x) override {
     this->parent_->fpc_cmd_abort();
-    this->parent_->fpc_cmd_system_config_get_request(FPC_SYS_CFG_TYPE_CUSTOM);  // DBUG only, delete this line
     this->parent_->app_state = APP_STATE_WAIT_ABORT;
   }
 };

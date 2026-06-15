@@ -254,11 +254,11 @@ async def to_code(config):
     for conf in config.get(CONF_ON_FINGER_SCAN_UNMATCHED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
-    """
+    
     for conf in config.get(CONF_ON_FINGER_SCAN_INVALID, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(cg.uint16, "capture_error")], conf)
-    """
+    
     for conf in config.get(CONF_ON_ENROLLMENT_SCAN, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(cg.uint16, "finger_id")], conf)
@@ -292,8 +292,8 @@ async def fingerprint_FPC2532_enroll_to_code(config, action_id, template_arg, ar
         template_ = await cg.templatable(config[CONF_FINGER_ID], args, cg.uint16)
         cg.add(var.set_finger_id(template_))
     else:
-        #cg.add(var.set_finger_id(cg.uint16(0)))
-        cg.add(var.set_finger_id(cg.templatable(cg.uint16(0))))
+        #cg.add(var.set_finger_id(cg.templatable(cg.uint16(0))))
+        cg.add(var.set_finger_id(await cg.templatable(0, args, cg.uint16)))
     return var
 
 

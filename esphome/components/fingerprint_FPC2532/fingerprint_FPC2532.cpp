@@ -217,16 +217,23 @@ void FingerprintFPC2532Component::update() {
   size_t n = this->available();
   if (n) {
     ESP_LOGVV(TAG, "number of bytes available to read: %d", n);
+    this->cmd_sent_at_ = 0;  // ← clear watchdog BEFORE processing, while we know data arrived
     result = fpc_host_sample_handle_rx_data();
     if (result != FPC_RESULT_OK && result != FPC_PENDING_OPERATION) {
       ESP_LOGE(TAG, "Bad incoming data (%d). Wait and try again", result);
-      this->fpc_hal_delay_ms(10);
       this->password_verified_ = false;
       this->app_state = APP_STATE_WAIT_READY;
       fpc_cmd_status_request();
     }
   } else {
     ESP_LOGVV(TAG, "No data available");
+    if (this->cmd_sent_at_ != 0 && (millis() - this->cmd_sent_at_ > CMD_RESPONSE_TIMEOUT_MS)) {
+      ESP_LOGE(TAG, "No feedback from sensor (timeout)");
+      this->cmd_sent_at_ = 0;
+      this->password_verified_ = false;
+      this->app_state = APP_STATE_WAIT_READY;
+      return;  // skip process_state() this cycle
+    }
   }
   this->process_state();
 }
@@ -348,8 +355,9 @@ void FingerprintFPC2532Component::process_state(void) {
         if (this->stop_mode_uart_ && has_power_pin_) {
           this->current_config_.sys_flags |= CFG_SYS_FLAG_UART_IN_STOP_MODE;
         } else if (this->stop_mode_uart_ && !has_power_pin_) {
-          ESP_LOGW(TAG, "No power_pin configured for waking up the device: setting not available");
-          this->current_config_.sys_flags |= CFG_SYS_FLAG_UART_IN_STOP_MODE;
+          ESP_LOGE(TAG, "No power_pin configured for waking up the device: Invalid config: stop_mode_uart has been re-set to false");
+          this->stop_mode_uart_ = false;
+          this->current_config_.sys_flags &= ~CFG_SYS_FLAG_UART_IN_STOP_MODE;
         } else {
           this->current_config_.sys_flags &= ~CFG_SYS_FLAG_UART_IN_STOP_MODE;
         }
@@ -374,14 +382,23 @@ void FingerprintFPC2532Component::process_state(void) {
     case APP_STATE_WAIT_LIST_TEMPLATES:
       ESP_LOGI(TAG, "APP_STATE_WAIT_LIST_TEMPLATES");
       if (this->list_templates_done_) {
-        this->list_templates_done_ = false;
         if (this->n_templates_on_device_ == MAX_NUMBER_OF_TEMPLATES) {
           ESP_LOGW(TAG, "No space for new fingerprints. Consider deleting unused templates.");
           fpc::fpc_id_type_t id_type = {ID_TYPE_ALL, 0};
           ESP_LOGI(TAG, "Starting identify");
-          next_state = APP_STATE_WAIT_IDENTIFY;
-          this->fpc_cmd_identify_request(&id_type, 0);
+          if (this->device_state_ & STATE_IDENTIFY) {
+            this->list_templates_done_ = false;
+            next_state = APP_STATE_WAIT_IDENTIFY;
+            ESP_LOGI(TAG, "APP_STATE_WAIT_IDENTIFY");
+          } 
+          else if (this->delay_elapsed(300)) {   
+            this->list_templates_done_ = false;
+            next_state = APP_STATE_WAIT_IDENTIFY;
+            ESP_LOGI(TAG, "APP_STATE_WAIT_IDENTIFY");
+            this->fpc_cmd_identify_request(&id_type, 0);
+          }
         } else if (this->n_templates_on_device_ == 0) {
+          this->list_templates_done_ = false; 
           fpc::fpc_id_type_t id_type = {ID_TYPE_GENERATE_NEW, 0};
           ESP_LOGI(TAG, "Starting enroll");
           next_state = APP_STATE_WAIT_ENROLL;
@@ -389,8 +406,17 @@ void FingerprintFPC2532Component::process_state(void) {
         } else {
           fpc::fpc_id_type_t id_type = {ID_TYPE_ALL, 0};
           ESP_LOGI(TAG, "Starting identify");
-          next_state = APP_STATE_WAIT_IDENTIFY;
-          this->fpc_cmd_identify_request(&id_type, 0);
+          if (this->device_state_ & STATE_IDENTIFY) {
+            this->list_templates_done_ = false;
+            next_state = APP_STATE_WAIT_IDENTIFY;
+            ESP_LOGI(TAG, "APP_STATE_WAIT_IDENTIFY");
+          } 
+          else if (this->delay_elapsed(300)) {   
+            this->list_templates_done_ = false;
+            next_state = APP_STATE_WAIT_IDENTIFY;
+            ESP_LOGI(TAG, "APP_STATE_WAIT_IDENTIFY");
+            this->fpc_cmd_identify_request(&id_type, 0);
+          }
         }
       }
       break;
@@ -459,9 +485,10 @@ void FingerprintFPC2532Component::process_state(void) {
     case APP_STATE_WAIT_DELETE_TEMPLATES: {
       if (this->device_ready_) {
         ESP_LOGI(TAG, "template/s deleted.");
-        this->fpc_hal_delay_ms(20);
-        next_state = APP_STATE_WAIT_LIST_TEMPLATES;
-        this->fpc_cmd_list_templates_request();
+        if (this->delay_elapsed(20)) {       
+          next_state = APP_STATE_WAIT_LIST_TEMPLATES;
+          this->fpc_cmd_list_templates_request();
+        }
       }
       break;
     }
@@ -512,7 +539,7 @@ void FingerprintFPC2532Component::sensor_wakeup_() {
     return;
 
   this->sensor_power_pin_->digital_write(true);
-  delay(1);  // datasheet set min 500uS to wake up device
+  delayMicroseconds(1000);// datasheet set min 500uS to wake up device
   this->sensor_power_pin_->digital_write(false);
 }
 
@@ -541,23 +568,11 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_send_request(fpc::fpc_cmd_hdr
   if (result == FPC_RESULT_OK) {
     sensor_wakeup_();
     /* Send payload. */
-    result = this->fpc_hal_tx((uint8_t *) cmd, size);
-    ESP_LOGVV(TAG, "command payload sent");
-  }
-
-  const uint32_t start = millis();
-  const uint32_t timeout_ms = 100;
-  if (result == FPC_RESULT_OK) {
-    while (!available()) {
-      ESP_LOGV(TAG, "waiting time in while loop waiting command feedback %u", millis() - start);
-      if (millis() - start > timeout_ms) {
-        ESP_LOGE(TAG, "no feedback from sensor available (timeout)");
-        return FPC_RESULT_TIMEOUT;
-      }
-      delay(1);
+    fpc::fpc_result_t result = this->fpc_hal_tx((uint8_t *) cmd, size);
+    if (result == FPC_RESULT_OK) {
+      this->cmd_sent_at_ = millis(); 
     }
-    ESP_LOGVV(TAG, "packet sent and sensor feedback available");
-    result = FPC_RESULT_OK;
+    ESP_LOGVV(TAG, "command payload sent");
   }
   return result;
 }
@@ -776,6 +791,10 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_host_sample_handle_rx_data(vo
     }
   }
 
+  if (frame_hdr.payload_size == 0 || frame_hdr.payload_size > MAX_HOST_PACKET_SIZE_DEFAULT) {
+    result = FPC_RESULT_IO_BAD_DATA;
+  }
+
   if (result == FPC_RESULT_OK) {
     frame_payload = static_cast<uint8_t *>(malloc(frame_hdr.payload_size));
     if (!frame_payload) {
@@ -930,6 +949,10 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_status(fpc::fpc_cmd_hdr
       ESP_LOGW(TAG, "Finger scan invalid: %s (%d)", fpc_result_to_string(status->app_fail_code), status->app_fail_code);
       this->finger_scan_invalid_callback_.call(status->app_fail_code);
     }
+    if ((this->device_state_ & STATE_IDENTIFY) && (status->app_fail_code != FPC_RESULT_OK) && (status->event != EVENT_NONE)) {
+      ESP_LOGW(TAG, "Finger scan invalid: %s (%d)", fpc_result_to_string(status->app_fail_code), status->app_fail_code);
+      this->finger_scan_invalid_callback_.call(status->app_fail_code);
+    }
   }
   return result;
 }
@@ -958,12 +981,13 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_version(fpc::fpc_cmd_hd
   }
 
   if (result == FPC_RESULT_OK) {
+    std::string version(ver->version_str, ver->version_str_len);
     ESP_LOGI(TAG, "CMD_VERSION.fw_id = %d", ver->fw_id);
     ESP_LOGI(TAG, "CMD_VERSION.unique_id = %08X %08X %08X", ver->mcu_unique_id[0], ver->mcu_unique_id[1],
              ver->mcu_unique_id[2]);
     ESP_LOGI(TAG, "CMD_VERSION.fuse_level = %d", ver->fw_fuse_level);
     ESP_LOGI(TAG, "CMD_VERSION.version_str_len = %d", ver->version_str_len);
-    ESP_LOGI(TAG, "CMD_VERSION.version = %s", ver->version_str);
+    ESP_LOGI(TAG, "CMD_VERSION.version = %s", version.c_str());
     this->version_read_ = true;
     char buf[25];
     snprintf(buf, sizeof(buf), "%08X%08X%08X", ver->mcu_unique_id[0], ver->mcu_unique_id[1], ver->mcu_unique_id[2]);
@@ -973,7 +997,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_version(fpc::fpc_cmd_hd
     }
 
     if (this->version_sensor_ != nullptr) {
-      this->version_sensor_->publish_state(ver->version_str);
+      this->version_sensor_->publish_state(version);
     }
   }
 
@@ -999,7 +1023,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_enroll_status(fpc::fpc_
   }
 
   if (result == FPC_RESULT_OK) {
-    uint16_t enroll_id = status->id;
+    this->enroll_id = status->id;
     ESP_LOGI(TAG, "CMD_ENROLL.id = %d", status->id);
     ESP_LOGI(TAG, "CMD_ENROLL.feedback = %s", get_enroll_feedback_str_(status->feedback));
     ESP_LOGI(TAG, "CMD_ENROLL.samples_remaining = %d", status->samples_remaining);
@@ -1015,8 +1039,8 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_enroll_status(fpc::fpc_
   if (status->feedback == ENROLL_FEEDBACK_REJECT_LOW_QUALITY ||
       status->feedback == ENROLL_FEEDBACK_REJECT_LOW_COVERAGE ||
       status->feedback == ENROLL_FEEDBACK_REJECT_LOW_MOBILITY || status->feedback == ENROLL_FEEDBACK_REJECT_OTHER) {
-        ESP_LOGW(TAG, "Enrollment scan rejected: %s (%d)", fpc_result_to_string(status->feedback), status->feedback);
-        this->finger_scan_invalid_callback_.call(status->feedback);
+    ESP_LOGW(TAG, "Enrollment scan rejected: %s (%d)", fpc_result_to_string(status->feedback), status->feedback);
+    this->finger_scan_invalid_callback_.call(status->feedback);
   }
 
   if (status->feedback == ENROLL_FEEDBACK_DONE) {
@@ -1222,7 +1246,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_hal_tx(uint8_t *data, std::si
     return FPC_RESULT_FAILURE;
   }
   this->write_array(data, len);
-  delay(1);
+  this->flush();
   return FPC_RESULT_OK;  // doesn't guarantee array was actually sent: no timeout handling here
 }
 fpc::fpc_result_t FingerprintFPC2532Component::fpc_hal_rx(uint8_t *data, std::size_t len) {
