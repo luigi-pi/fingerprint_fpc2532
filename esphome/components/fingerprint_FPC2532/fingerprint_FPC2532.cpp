@@ -251,8 +251,8 @@ void FingerprintFPC2532Component::setup() {
   this->delay_until_ = 0;
   this->has_power_pin_ = (this->sensor_power_pin_ != nullptr);
   if (this->has_power_pin_) {
+        this->sensor_power_pin_->setup();
     this->sensor_power_pin_->digital_write(false);
-    this->sensor_power_pin_->setup();
   }
   // If the user didn't specify an idle period to sleep, applies the default.
 
