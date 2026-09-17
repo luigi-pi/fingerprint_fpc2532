@@ -23,23 +23,21 @@ def validate_icons(config):
         return ICON_ACCOUNT
     return "mdi:checkbox-blank-outline"
 
-
-CONFIG_SCHEMA = text_sensor.text_sensor_schema().extend(
+CONFIG_SCHEMA = cv.Schema(
     {
-        cv.GenerateID(CONF_FINGERPRINT_FPC2532_ID): cv.use_id(
-            FingerprintFPC2532Component
-        ),
+        cv.GenerateID(CONF_FINGERPRINT_FPC2532_ID): cv.use_id(FingerprintFPC2532Component),
+        cv.Optional(CONF_STATUS_TEXT): text_sensor.text_sensor_schema(icon=ICON_INFO),
+        cv.Optional(CONF_UNIQUE_ID): text_sensor.text_sensor_schema(icon=ICON_INFO),
+        cv.Optional(CONF_VERSION): text_sensor.text_sensor_schema(icon=ICON_INFO),
+        cv.Optional(CONF_LAST_FINGER_ID): text_sensor.text_sensor_schema(icon=ICON_ACCOUNT),
     }
 )
 
-
 async def to_code(config):
     hub = await cg.get_variable(config[CONF_FINGERPRINT_FPC2532_ID])
+    for key in [CONF_STATUS_TEXT, CONF_UNIQUE_ID, CONF_VERSION, CONF_LAST_FINGER_ID]:
+        if key not in config:
+            continue
+        sens = await text_sensor.new_text_sensor(config[key])
+        cg.add(getattr(hub, f"set_{key}_sensor")(sens))
 
-    # Inject icon at compile-time before sensor creation instead of calling
-    # set_icon() at runtime (removed in ESPHome API change #14564)
-    if CONF_ICON not in config:
-        config = {**config, CONF_ICON: validate_icons(config)}
-
-    sens = await text_sensor.new_text_sensor(config)
-    cg.add(getattr(hub, f"set_{config[CONF_ID]}_sensor")(sens))
