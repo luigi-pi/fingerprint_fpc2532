@@ -182,33 +182,27 @@ binary_sensor:
 
 text_sensor:
   - platform: fingerprint_FPC2532
-    id: text_status
-    name: "Sensor Status"
-
-  - platform: fingerprint_FPC2532
-    id: unique_id
-    name: "Unique Hardware ID"
-
-  - platform: fingerprint_FPC2532
-    id: version
-    name: "Version"
-
+    text_status:
+      name: "Sensor Status"
+    unique_id:
+      name: "Unique Hardware ID"
+    version:
+      name: "Version"
+    last_finger_id:
+      name: "Last Matched Finger"
   - platform: template
-    id: fingerprint_state
-    name: "Scan Result"
+  id: fingerprint_state
+  name: "Scan Result"
 
   - platform: template
     id: text_enrollment_feedback
     name: "Enrollment Feedback"
 
+
 sensor:
   - platform: fingerprint_FPC2532
     fingerprint_count:
       name: "Number of Fingerprints"
-      accuracy_decimals: 0
-
-    last_finger_id:
-      name: "Last Matched Finger"
       accuracy_decimals: 0
 
     num_scans:
