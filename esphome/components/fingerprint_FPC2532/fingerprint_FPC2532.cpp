@@ -215,6 +215,19 @@ static const char *app_state_wait_str_(uint16_t app_state) {
 void FingerprintFPC2532Component::update() {
   fpc::fpc_result_t result;
   size_t n = this->available();
+
+  if (n) {
+    result = fpc_host_sample_handle_rx_data();
+    if (result == FPC_RESULT_IO_BAD_DATA) {           // genuinely malformed frame content
+      ESP_LOGE(TAG, "Bad incoming data (%d). Wait and try again", result);
+      this->password_verified_ = false;
+      this->app_state = APP_STATE_WAIT_READY;
+      fpc_cmd_status_request();
+    } else if (result != FPC_RESULT_OK && result != FPC_PENDING_OPERATION) {
+      ESP_LOGW(TAG, "RX incomplete (%d), will retry", result);  // e.g. FPC_RESULT_FAILURE from a read timeout
+    }
+  }
+/*
   if (n) {
     ESP_LOGVV(TAG, "number of bytes available to read: %d", n);
     this->cmd_sent_at_ = 0;  // ← clear watchdog BEFORE processing, while we know data arrived
@@ -235,6 +248,7 @@ void FingerprintFPC2532Component::update() {
       return;  // skip process_state() this cycle
     }
   }
+*/
   this->process_state();
 }
 
@@ -771,7 +785,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_cmd_system_config_get_request
 /* Command Responses / Events */
 fpc::fpc_result_t FingerprintFPC2532Component::fpc_host_sample_handle_rx_data(void) {
   fpc::fpc_result_t result;
-  fpc::fpc_frame_hdr_t frame_hdr;
+  fpc::fpc_frame_hdr_t frame_hdr = {0};
   // std::vector<uint8_t> frame_payload;
   uint8_t *frame_payload = NULL;
 
@@ -789,10 +803,9 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_host_sample_handle_rx_data(vo
       ESP_LOGVV(TAG, "Received Header frame: version=%02X, flags=%02X, type=%02X, payload_size=%" PRIu32,
                 frame_hdr.version, frame_hdr.flags, frame_hdr.type, frame_hdr.payload_size);
     }
-  }
-
-  if (frame_hdr.payload_size == 0 || frame_hdr.payload_size > MAX_HOST_PACKET_SIZE_DEFAULT) {
-    result = FPC_RESULT_IO_BAD_DATA;
+    if (frame_hdr.payload_size == 0 || frame_hdr.payload_size > MAX_HOST_PACKET_SIZE_DEFAULT) {
+      result = FPC_RESULT_IO_BAD_DATA;
+    }
   }
 
   if (result == FPC_RESULT_OK) {
