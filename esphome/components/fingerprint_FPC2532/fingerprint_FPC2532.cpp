@@ -1126,6 +1126,13 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_list_templates(fpc::fpc
   }
 
   if (result == FPC_RESULT_OK) {
+    if (size < sizeof(fpc::fpc_cmd_template_info_response_t)) {
+      ESP_LOGE(TAG, "CMD_LIST_TEMPLATES invalid size (%d, too small)", size);
+      result = FPC_RESULT_INVALID_PARAM;
+    }
+  }
+
+  if (result == FPC_RESULT_OK) {
     total_pl_size = sizeof(fpc::fpc_cmd_template_info_response_t) + (sizeof(uint16_t) * list->number_of_templates);
 
     if (size != total_pl_size) {
