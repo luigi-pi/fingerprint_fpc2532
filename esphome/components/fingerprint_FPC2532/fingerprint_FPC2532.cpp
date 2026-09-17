@@ -970,6 +970,13 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_version(fpc::fpc_cmd_hd
   }
 
   if (result == FPC_RESULT_OK) {
+    if (size < sizeof(fpc::fpc_cmd_version_response_t)) {
+      ESP_LOGE(TAG, "CMD_VERSION invalid size (%d, too small)", size);
+      result = FPC_RESULT_INVALID_PARAM;
+    }
+  }
+
+  if (result == FPC_RESULT_OK) {
     /* The full size of the command must include the length of the
       version string (unset array) */
     full_size = sizeof(fpc::fpc_cmd_version_response_t) + ver->version_str_len;
