@@ -4,7 +4,6 @@ import esphome.config_validation as cv
 from esphome.const import (
     CONF_CAPACITY,
     CONF_FINGERPRINT_COUNT,
-    CONF_LAST_FINGER_ID,
     CONF_NUM_SCANS,
     CONF_STATUS,
     ENTITY_CATEGORY_DIAGNOSTIC,
@@ -59,10 +58,6 @@ CONFIG_SCHEMA = cv.Schema(
             accuracy_decimals=0,
             entity_category="",
         ),
-        cv.Optional(CONF_LAST_FINGER_ID): sensor.sensor_schema(
-            icon=ICON_ACCOUNT,
-            accuracy_decimals=0,
-        ),
         cv.Optional(CONF_SCAN_INTERVAL): sensor.sensor_schema(
             icon=ICON_COG,
             accuracy_decimals=0,
@@ -109,7 +104,6 @@ async def to_code(config):
         CONF_FINGERPRINT_COUNT,
         CONF_STATUS,
         CONF_CAPACITY,
-        CONF_LAST_FINGER_ID,
         CONF_NUM_SCANS,
         CONF_ENROLLMENT_FEEDBACK,
         CONF_SCAN_INTERVAL,
