@@ -186,7 +186,6 @@ on_...:
 | Sensor                                                         | Description                            |
 | -------------------------------------------------------------- | -------------------------------------- |
 | `fingerprint_count`                                            | Number of stored fingerprints          |
-| `last_finger_id`                                               | Last matched fingerprint ID            |
 | `status`                                                       | Raw numeric status register            |
 | `num_scans`                                                    | Remaining scans to complete enrollment |
 | `enrollment_feedback`                                          | Enrollment state code                  |
@@ -201,7 +200,22 @@ on_...:
 | `version`     | Sensor firmware version                  |
 | `unique_id`   | Hardware ID (should be used as password) |
 | `text_status` | Verbose status description               |
+| `last_finger_id` | JSON {"id":<n>,"ts":<millis>} of the last matched finger ID |
 
+All four are declared as nested keys under a single `platform: fingerprint_FPC2532` block, the same way `sensor:` options are — not as separate list entries:
+ 
+```yaml
+text_sensor:
+  - platform: fingerprint_FPC2532
+    text_status:
+      name: "Sensor Status"
+    unique_id:
+      name: "Unique Hardware ID"
+    version:
+      name: "Version"
+    last_finger_id:
+      name: "Last Matched Finger"
+```
 ---
 
 ## 🔐 Password & Unique ID Handling 
