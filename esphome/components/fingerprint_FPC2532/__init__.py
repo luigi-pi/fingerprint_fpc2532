@@ -107,23 +107,23 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(
                 CONF_ENROLL_TIMEOUT, default="5s"
             ): cv.positive_time_period_seconds,
-            cv.Optional(
-                CONF_LOCKOUT_TIME, default="15s"
-            ): cv.positive_time_period_seconds,
+            cv.Optional(CONF_LOCKOUT_TIME, default="15s"): cv.All(
+            cv.positive_time_period_seconds, cv.Range(max=cv.TimePeriod(seconds=255))
+            ),
             cv.Optional(CONF_UART_IRQ_BEFORE_TX, default=True): cv.boolean,
             cv.Optional(CONF_STATUS_AT_BOOT, default=True): cv.boolean,
             cv.Optional(CONF_STOP_MODE_UART, default=False): cv.boolean,
             cv.Optional(CONF_UART_BAUDRATE, default="921600"): validate_baudrate,
             cv.Optional(CONF_MAX_CONSECUTIVE_FAILS, default=5): cv.uint8_t,
-            cv.Optional(
-                CONF_TIME_BEFORE_SLEEP, default="0ms"
-            ): cv.positive_time_period_milliseconds,
-            cv.Optional(
-                CONF_DELAY_BEFORE_IRQ, default="1ms"
-            ): cv.positive_time_period_milliseconds,
-            cv.Optional(
-                CONF_FINGER_SCAN_INTERVAL, default="34ms"
-            ): cv.positive_time_period_milliseconds,
+            cv.Optional(CONF_TIME_BEFORE_SLEEP, default="0ms"): cv.All(
+            cv.positive_time_period_milliseconds, cv.Range(max=cv.TimePeriod(milliseconds=65535))
+            ),
+            cv.Optional(CONF_DELAY_BEFORE_IRQ, default="1ms"): cv.All(
+            cv.positive_time_period_milliseconds, cv.Range(max=cv.TimePeriod(milliseconds=255))
+            ),
+            cv.Optional(CONF_FINGER_SCAN_INTERVAL, default="34ms"): cv.All(
+            cv.positive_time_period_milliseconds, cv.Range(max=cv.TimePeriod(milliseconds=1020))
+            ),
             cv.Optional(CONF_PASSWORD, default=INITIAL_PASSWORD): cv.string_strict,
             cv.Optional(CONF_ON_FINGER_SCAN_START): automation.validate_automation(
                 {
