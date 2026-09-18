@@ -616,7 +616,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_cmd_version_request(void) {
 fpc::fpc_result_t FingerprintFPC2532Component::fpc_cmd_enroll_request(fpc::fpc_id_type_t *id) {
   fpc::fpc_result_t result = FPC_RESULT_OK;
   fpc::fpc_cmd_enroll_request_t cmd_req;
-  this->device_ready_ = false;
+
 
   if (!this->password_verified_) {
     ESP_LOGE(TAG, "Enroll Request: Password not verified");
@@ -629,6 +629,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_cmd_enroll_request(fpc::fpc_i
   }
 
   if (result == FPC_RESULT_OK) {
+    this->device_ready_ = false;
     cmd_req.cmd.cmd_id = CMD_ENROLL;
     cmd_req.cmd.type = FPC_FRAME_TYPE_CMD_REQUEST;
 
