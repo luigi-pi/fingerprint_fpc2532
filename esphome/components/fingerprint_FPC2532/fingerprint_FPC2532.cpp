@@ -293,6 +293,7 @@ bool FingerprintFPC2532Component::delay_elapsed(uint32_t duration_ms) {
 }
 
 void FingerprintFPC2532Component::process_state(void) {
+  ESP_LOGV(TAG, "process_state: %s", app_state_wait_str_(this->app_state));
   app_state_t next_state = app_state;
 
   switch (app_state) {
