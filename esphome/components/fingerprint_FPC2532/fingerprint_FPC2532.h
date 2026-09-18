@@ -294,6 +294,7 @@ template<typename... Ts> class EnrollmentAction : public Action<Ts...>, public P
   void play(const Ts &...x) override {
     auto finger_id = this->finger_id_.value(x...);
     this->parent_->enroll_request = true;
+    this->parent_->delete_request = false;
     if (finger_id) {
       this->parent_->id_type_enroll_request.type = ID_TYPE_SPECIFIED;
       this->parent_->id_type_enroll_request.id = finger_id;
@@ -313,6 +314,7 @@ template<typename... Ts> class DeleteAction : public Action<Ts...>, public Paren
   void play(const Ts &...x) override {
     auto finger_id = this->finger_id_.value(x...);
     this->parent_->delete_request = true;
+    this->parent_->enroll_request = false; 
     this->parent_->id_type_delete_request.type = ID_TYPE_SPECIFIED;
     this->parent_->id_type_delete_request.id = finger_id;
     this->parent_->fpc_cmd_abort();
@@ -324,6 +326,7 @@ template<typename... Ts> class DeleteAllAction : public Action<Ts...>, public Pa
  public:
   void play(const Ts &...x) override {
     this->parent_->delete_request = true;
+    this->parent_->enroll_request = false; 
     this->parent_->id_type_delete_request.type = ID_TYPE_ALL;
     this->parent_->id_type_delete_request.id = 0;
     this->parent_->fpc_cmd_abort();
