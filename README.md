@@ -122,7 +122,7 @@ The configuration consists of:
 | `time_before_sleep_ms`    | time   | Idle time before sleep. Default: 0 ms                               |
 | `delay_before_irq_ms`     | time   | Delay after IRQ before communication. Default: 1 ms                 |
 | `finger_scan_interval_ms` | time   | Delay between scan attempts. Default: 34 ms                         |
-| `password`                | string | Required. Unique HW ID from first boot. Needed to authorize access. |
+| `password`                | string | Required. Unique HW ID from first boot. Detects if the physical sensor module has been swapped for a different unit; not a secret and not a defense against UART-bus access. |
 
 ---
 
