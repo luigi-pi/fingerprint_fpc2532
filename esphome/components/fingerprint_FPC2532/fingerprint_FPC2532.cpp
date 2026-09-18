@@ -217,38 +217,31 @@ void FingerprintFPC2532Component::update() {
   size_t n = this->available();
 
   if (n) {
+    ESP_LOGVV(TAG, "number of bytes available to read: %d", n);
     result = fpc_host_sample_handle_rx_data();
-    if (result == FPC_RESULT_IO_BAD_DATA) {           // genuinely malformed frame content
+    if (result == FPC_RESULT_IO_BAD_DATA) {           
       ESP_LOGE(TAG, "Bad incoming data (%d). Wait and try again", result);
+      this->cmd_sent_at_ = 0;
       this->password_verified_ = false;
       this->app_state = APP_STATE_WAIT_READY;
       fpc_cmd_status_request();
     } else if (result != FPC_RESULT_OK && result != FPC_PENDING_OPERATION) {
-      ESP_LOGW(TAG, "RX incomplete (%d), will retry", result);  // e.g. FPC_RESULT_FAILURE from a read timeout
-    }
-  }
-/*
-  if (n) {
-    ESP_LOGVV(TAG, "number of bytes available to read: %d", n);
-    this->cmd_sent_at_ = 0;  // ← clear watchdog BEFORE processing, while we know data arrived
-    result = fpc_host_sample_handle_rx_data();
-    if (result != FPC_RESULT_OK && result != FPC_PENDING_OPERATION) {
-      ESP_LOGE(TAG, "Bad incoming data (%d). Wait and try again", result);
-      this->password_verified_ = false;
-      this->app_state = APP_STATE_WAIT_READY;
-      fpc_cmd_status_request();
+      ESP_LOGW(TAG, "RX incomplete (%d), will retry", result);  
+    } else {
+      this->cmd_sent_at_ = 0; 
     }
   } else {
     ESP_LOGVV(TAG, "No data available");
-    if (this->cmd_sent_at_ != 0 && (millis() - this->cmd_sent_at_ > CMD_RESPONSE_TIMEOUT_MS)) {
-      ESP_LOGE(TAG, "No feedback from sensor (timeout)");
-      this->cmd_sent_at_ = 0;
-      this->password_verified_ = false;
-      this->app_state = APP_STATE_WAIT_READY;
-      return;  // skip process_state() this cycle
-    }
   }
-*/
+
+  if (this->cmd_sent_at_ != 0 && (millis() - this->cmd_sent_at_ > CMD_RESPONSE_TIMEOUT_MS)) {
+  ESP_LOGE(TAG, "No feedback from sensor (timeout)");
+  this->cmd_sent_at_ = 0;
+  this->password_verified_ = false;
+  this->app_state = APP_STATE_WAIT_READY;
+  return;  // skip process_state() this cycle
+  } 
+
   this->process_state();
 }
 
