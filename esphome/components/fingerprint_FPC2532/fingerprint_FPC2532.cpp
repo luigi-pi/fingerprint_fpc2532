@@ -1154,7 +1154,11 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_list_templates(fpc::fpc
       ESP_LOGI(TAG, "CMD_LIST_TEMPLATES.id = %d", list->template_id_list[i]);
     }
     this->list_templates_done_ = true;
-    this->n_templates_on_device_ = list->number_of_templates;
+    if (list->number_of_templates > MAX_NUMBER_OF_TEMPLATES) {
+      ESP_LOGE(TAG, "CMD_LIST_TEMPLATES reports %u templates, exceeds MAX_NUMBER_OF_TEMPLATES", list->number_of_templates);
+      return FPC_RESULT_INVALID_PARAM;
+    }
+    this->n_templates_on_device_ = (uint8_t) list->number_of_templates;
     if (this->fingerprint_count_sensor_ != nullptr) {
       this->fingerprint_count_sensor_->publish_state((uint8_t) this->n_templates_on_device_);
     }
