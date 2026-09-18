@@ -564,6 +564,10 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_send_request(fpc::fpc_cmd_hdr
     frame.version = FPC_FRAME_PROTOCOL_VERSION;
     frame.type = FPC_FRAME_TYPE_CMD_REQUEST;
     frame.flags = FPC_FRAME_FLAG_SENDER_HOST;
+    if (size > UINT16_MAX) {
+      ESP_LOGE(TAG, "Command payload too large (%zu)", size);
+      return FPC_RESULT_INVALID_PARAM;
+    }
     frame.payload_size = (uint16_t) size;
 
     /* Send frame header. */
