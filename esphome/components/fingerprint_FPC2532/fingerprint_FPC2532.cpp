@@ -1260,6 +1260,11 @@ void FingerprintFPC2532Component::hal_reset_device() {
     this->reset_pin_->digital_write(true);
     ESP_LOGI(TAG, "System Reset via RST_N pin");
   }
+  uint8_t discard;
+  while (this->available()) {          
+    this->read_byte(&discard);
+  }
+  delay(50); 
 }
 fpc::fpc_result_t FingerprintFPC2532Component::fpc_hal_tx(uint8_t *data, std::size_t len) {
   if (!data || len == 0) {
