@@ -147,7 +147,7 @@ The configuration consists of:
 ```yaml
 on_...:
   then:
-    - fingerprint_grow.enroll:
+    - fingerprint_FPC2532.enroll:
         finger_id: 0
 ```
 
@@ -156,7 +156,7 @@ on_...:
 ```yaml
 on_...:
   then:
-    - fingerprint_grow.cancel_enroll:
+    - fingerprint_FPC2532.cancel_enroll:
 ```
 
 ### **Delete fingerprint**
@@ -164,7 +164,7 @@ on_...:
 ```yaml
 on_...:
   then:
-    - fingerprint_grow.delete:
+    - fingerprint_FPC2532.delete:
         finger_id: 0
 ```
 
