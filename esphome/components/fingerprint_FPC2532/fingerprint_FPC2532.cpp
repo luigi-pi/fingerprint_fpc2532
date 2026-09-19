@@ -782,26 +782,48 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_cmd_system_config_get_request
 }
 
 /* Command Responses / Events */
+fpc::fpc_result_t FingerprintFPC2532Component::find_frame_header_(fpc::fpc_frame_hdr_t *out_hdr) {
+  uint8_t window[sizeof(fpc::fpc_frame_hdr_t)];
+  uint32_t start = millis();
+
+  if (this->fpc_hal_rx(window, sizeof(window)) != FPC_RESULT_OK) {
+    return FPC_RESULT_FAILURE;  // nothing arrived -- genuine silence, not misalignment
+  }
+
+  for (uint16_t scanned = 0; scanned < MAX_RESYNC_BYTES; scanned++) {
+    memcpy(out_hdr, window, sizeof(window));
+    if (out_hdr->version == FPC_FRAME_PROTOCOL_VERSION &&
+        (out_hdr->flags & FPC_FRAME_FLAG_SENDER_FW_APP) != 0 &&
+        (out_hdr->type == FPC_FRAME_TYPE_CMD_RESPONSE || out_hdr->type == FPC_FRAME_TYPE_CMD_EVENT)) {
+      if (scanned > 0) {
+        ESP_LOGW(TAG, "Resynced after discarding %u byte(s) (%u ms)", scanned, millis() - start);
+      }
+      return FPC_RESULT_OK;
+    }
+
+    if (millis() - start > MAX_RESYNC_TIME_MS) {
+      ESP_LOGE(TAG, "Resync aborted: exceeded %u ms budget after %u byte(s)", MAX_RESYNC_TIME_MS, scanned);
+      return FPC_RESULT_IO_BAD_DATA;
+    }
+
+    memmove(window, window + 1, sizeof(window) - 1);
+    if (this->fpc_hal_rx(&window[sizeof(window) - 1], 1) != FPC_RESULT_OK) {
+      return FPC_RESULT_FAILURE;
+    }
+  }
+
+  ESP_LOGE(TAG, "Failed to resync after scanning %u bytes", MAX_RESYNC_BYTES);
+  return FPC_RESULT_IO_BAD_DATA;
+}
 fpc::fpc_result_t FingerprintFPC2532Component::fpc_host_sample_handle_rx_data(void) {
   fpc::fpc_result_t result;
   fpc::fpc_frame_hdr_t frame_hdr = {0};
-  // std::vector<uint8_t> frame_payload;
   uint8_t *frame_payload = NULL;
 
-  /* Step 1: Read Frame Header */
-  result = this->fpc_hal_rx((uint8_t *) &frame_hdr, sizeof(fpc::fpc_frame_hdr_t));
+  /* Step 1: Find and read a valid frame header, resyncing if necessary */
+  result = this->find_frame_header_(&frame_hdr);
 
   if (result == FPC_RESULT_OK) {
-    ESP_LOGVV(TAG, "Sanity check started");
-    /* Sanity Check */
-    if (frame_hdr.version != FPC_FRAME_PROTOCOL_VERSION || ((frame_hdr.flags & FPC_FRAME_FLAG_SENDER_FW_APP) == 0) ||
-        (frame_hdr.type != FPC_FRAME_TYPE_CMD_RESPONSE && frame_hdr.type != FPC_FRAME_TYPE_CMD_EVENT)) {
-      ESP_LOGE(TAG, "Sanity check of rx data failed");
-      result = FPC_RESULT_IO_BAD_DATA;
-    } else {
-      ESP_LOGVV(TAG, "Received Header frame: version=%02X, flags=%02X, type=%02X, payload_size=%" PRIu32,
-                frame_hdr.version, frame_hdr.flags, frame_hdr.type, frame_hdr.payload_size);
-    }
     if (frame_hdr.payload_size == 0 || frame_hdr.payload_size > MAX_HOST_PACKET_SIZE_DEFAULT) {
       result = FPC_RESULT_IO_BAD_DATA;
     }
@@ -830,13 +852,9 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_host_sample_handle_rx_data(vo
 
   if (result != FPC_RESULT_OK) {
     ESP_LOGE(TAG, "Failed to handle RX data, error %d", result);
-    // Publish numeric error state if status sensor exists
     if (this->status_sensor_ != nullptr) {
-      // Use max 16-bit value as error indicator
       this->status_sensor_->publish_state(0xFFFF);
     }
-
-    // Publish descriptive error message if text sensor exists
     if (this->text_status_sensor_ != nullptr) {
       this->text_status_sensor_->publish_state("COMMUNICATION ERROR / HARDWARE TAMPERING");
     }
@@ -844,6 +862,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_host_sample_handle_rx_data(vo
 
   return result;
 }
+
 fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd(uint8_t *frame_payload, std::size_t size) {
   fpc::fpc_result_t result = FPC_RESULT_OK;
   fpc::fpc_cmd_hdr_t *cmd_hdr;

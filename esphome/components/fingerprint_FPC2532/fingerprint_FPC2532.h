@@ -20,6 +20,8 @@ namespace fingerprint_FPC2532 {
 const uint8_t MAX_NUMBER_OF_TEMPLATES = 30;
 static const std::string INITIAL_PASSWORD = "0";
 static constexpr uint32_t CMD_RESPONSE_TIMEOUT_MS = 1000;
+static const uint16_t MAX_RESYNC_BYTES = 256;    
+static const uint32_t MAX_RESYNC_TIME_MS = 50;
 typedef enum {
   APP_STATE_WAIT_READY = 0,
   APP_STATE_WAIT_VERSION,
@@ -222,6 +224,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   fpc::fpc_result_t fpc_cmd_system_config_set_request(fpc::fpc_system_config_t *cfg);
   // receive
   fpc::fpc_result_t fpc_host_sample_handle_rx_data(void);
+  fpc::fpc_result_t find_frame_header_(fpc::fpc_frame_hdr_t *out_hdr);
   fpc::fpc_result_t parse_cmd(uint8_t *frame_payload, std::size_t size);
   fpc::fpc_result_t parse_cmd_status(fpc::fpc_cmd_hdr_t *cmd_hdr, std::size_t size);
 
