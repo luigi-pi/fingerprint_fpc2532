@@ -1063,7 +1063,10 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_enroll_status(fpc::fpc_
   }
 
   if (status->feedback == ENROLL_FEEDBACK_DONE) {
-    this->enrollment_done_callback_.call(enroll_id);
+    if (this->enroll_id_ != nullptr) {
+      this->enroll_id_->publish_state((uint16_t) status->id);
+    }
+    this->enrollment_done_callback_.call(status->id);
     this->fpc_cmd_list_templates_request();
     this->app_state = APP_STATE_WAIT_LIST_TEMPLATES;
     if (this->enrolling_binary_sensor_ != nullptr) {

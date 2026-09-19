@@ -28,6 +28,7 @@ CONF_UART_DLY_BEFORE_TX = "uart_dly_before_tx_ms"
 CONF_SCAN_INTERVAL = "scan_interval_ms"
 CONF_BAUD_RATE = "baud_rate"
 CONF_ENROLL_TIMEOUT = "enroll_timeout_s"
+CONF_ENROLL_ID = "enroll_id"
 
 DEPENDENCIES = ["fingerprint_FPC2532"]
 
@@ -93,6 +94,11 @@ CONFIG_SCHEMA = cv.Schema(
             accuracy_decimals=0,
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
         ),
+        cv.Optional(CONF_ENROLL_ID): sensor.sensor_schema(
+            icon=ICON_COG,
+            accuracy_decimals=0,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ),
     }
 )
 
@@ -113,6 +119,7 @@ async def to_code(config):
         CONF_LOCKOUT_TIME,
         CONF_BAUD_RATE,
         CONF_ENROLL_TIMEOUT,
+        CONF_ENROLL_ID,
     ]:
         if key not in config:
             continue
