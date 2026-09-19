@@ -111,7 +111,7 @@ CONFIG_SCHEMA = cv.All(
             cv.positive_time_period_seconds, cv.Range(max=cv.TimePeriod(seconds=255))
             ),
             cv.Optional(CONF_UART_IRQ_BEFORE_TX, default=True): cv.boolean,
-            cv.Optional(CONF_STATUS_AT_BOOT, default=True): cv.boolean,
+            cv.Optional(CONF_STATUS_AT_BOOT, default=False): cv.boolean,
             cv.Optional(CONF_STOP_MODE_UART, default=False): cv.boolean,
             cv.Optional(CONF_UART_BAUDRATE, default="921600"): validate_baudrate,
             cv.Optional(CONF_MAX_CONSECUTIVE_FAILS, default=5): cv.uint8_t,
