@@ -20,6 +20,7 @@ namespace fingerprint_FPC2532 {
 const uint8_t MAX_NUMBER_OF_TEMPLATES = 30;
 static const std::string INITIAL_PASSWORD = "0";
 static constexpr uint32_t CMD_RESPONSE_TIMEOUT_MS = 1000;
+static constexpr uint32_t DEVICE_STARTUP_DELAY_MS = 3000;
 static const uint16_t MAX_RESYNC_BYTES = 256;    
 static const uint32_t MAX_RESYNC_TIME_MS = 50;
 typedef enum {

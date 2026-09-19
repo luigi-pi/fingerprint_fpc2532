@@ -211,43 +211,13 @@ static const char *app_state_wait_str_(uint16_t app_state) {
   }
   return "app state Unknown";
 }
-
-void FingerprintFPC2532Component::update() {
-  fpc::fpc_result_t result;
-  size_t n = this->available();
-
-  if (n) {
-    ESP_LOGVV(TAG, "number of bytes available to read: %d", n);
-    result = fpc_host_sample_handle_rx_data();
-    if (result == FPC_RESULT_IO_BAD_DATA) {           
-      ESP_LOGE(TAG, "Bad incoming data (%d). Wait and try again", result);
-      this->cmd_sent_at_ = 0;
-      this->password_verified_ = false;
-      this->app_state = APP_STATE_WAIT_READY;
-      fpc_cmd_status_request();
-    } else if (result != FPC_RESULT_OK && result != FPC_PENDING_OPERATION) {
-      ESP_LOGW(TAG, "RX incomplete (%d), will retry", result);  
-    } else {
-      this->cmd_sent_at_ = 0; 
-    }
-  } else {
-    ESP_LOGVV(TAG, "No data available");
-  }
-
-  if (this->cmd_sent_at_ != 0 && (millis() - this->cmd_sent_at_ > CMD_RESPONSE_TIMEOUT_MS)) {
-  ESP_LOGE(TAG, "No feedback from sensor (timeout)");
-  this->cmd_sent_at_ = 0;
-  this->password_verified_ = false;
-  this->app_state = APP_STATE_WAIT_READY;
-  return;  // skip process_state() this cycle
-  } 
-
-  this->process_state();
-}
-
 void FingerprintFPC2532Component::setup() {
   this->fpc_hal_init();
   this->hal_reset_device();
+  uint8_t discard;
+  while (this->available()) {
+    this->read_byte(&discard);
+    }
   // this->fpc_cmd_abort();
   this->password_verified_ = false;
   this->device_ready_ = false;
@@ -269,8 +239,44 @@ void FingerprintFPC2532Component::setup() {
   if (this->enrolling_binary_sensor_ != nullptr) {
     this->enrolling_binary_sensor_->publish_state(false);
   }
+  this->set_timeout(DEVICE_STARTUP_DELAY_MS, [this]() {  //  Give FPC2532 time to initialize after reset
+    this->app_state = APP_STATE_WAIT_READY;
+    this->fpc_cmd_status_request();
+      ESP_LOGD(TAG, "fpc_cmd_status_request sent, end of setup");
+   });
+}
+
+void FingerprintFPC2532Component::update() {
+  fpc::fpc_result_t result;
+  size_t n = this->available();
+
+  if (n) {
+    ESP_LOGVV(TAG, "number of bytes available to read: %d", n);
+    result = fpc_host_sample_handle_rx_data();
+    if (result == FPC_RESULT_IO_BAD_DATA) {           
+      ESP_LOGE(TAG, "Bad incoming data (%d). Wait and try again", result);
+      this->cmd_sent_at_ = 0;
+      this->password_verified_ = false;
+      this->app_state = APP_STATE_WAIT_READY;
+      fpc_cmd_status_request();
+    } else if (result != FPC_RESULT_OK && result != FPC_PENDING_OPERATION) {
+      ESP_LOGW(TAG, "RX incomplete (%d), will retry", result);  
+    } else {
+      this->cmd_sent_at_ = 0; 
+    }
+  } else {
+    ESP_LOGD(TAG, "No data available");
+  }
+
+  if (this->cmd_sent_at_ != 0 && (millis() - this->cmd_sent_at_ > CMD_RESPONSE_TIMEOUT_MS)) {
+  ESP_LOGE(TAG, "No feedback from sensor (timeout)");
+  this->cmd_sent_at_ = 0;
+  this->password_verified_ = false;
   this->app_state = APP_STATE_WAIT_READY;
-  this->fpc_cmd_status_request();
+  return;  // skip process_state() this cycle
+  } 
+
+  this->process_state();
 }
 
 /*
@@ -300,7 +306,7 @@ void FingerprintFPC2532Component::process_state(void) {
     case APP_STATE_WAIT_READY:
       ESP_LOGD(TAG, "APP_STATE_WAIT_READY");
       if (this->device_ready_) {
-        if (this->delay_elapsed(5000)) {  // Wait for the device to be fully ready.
+        if (this->delay_elapsed(300)) {  
           next_state = APP_STATE_WAIT_VERSION;
           this->fpc_cmd_version_request();
           //  this->fpc_cmd_system_config_get_request(FPC_SYS_CFG_TYPE_DEFAULT);  // get current defaults
