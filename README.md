@@ -115,7 +115,7 @@ The configuration consists of:
 | `irq_pin`                 | pin    | Optional. Interrupt pin for ESP NodeMCU wake-up.                    |
 | `lockout_time_s`          | time   | Lockout duration after too many failed attempts. Default: 15 s      |
 | `uart_irq_before_tx`      | bool   | Generate IRQ before UART TX. Default: true                          |
-| `status_at_boot`          | bool   | Report status after boot. Default: true                             |
+| `status_at_boot`          | bool   | Report status after boot. Default: false                             |
 | `stop_mode_uart`          | bool   | Allows deep-sleep mode (requires power pin). Default: false         |
 | `uart_baudrate`           | int    | Must match UART config. Default: 921600                             |
 | `max_consecutive_fails`   | int    | Fail count before lockout. Default: 5                               |
