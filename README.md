@@ -33,7 +33,8 @@ Ideal for battery-powered devices.**22 µA** in finger-detect mode.
 
 ### 🎮 **Gesture navigation**
 
-The hardware allows simple up/down/left/right swipe navigation (future feature).
+After a successful identification the sensor can accept one swipe (up/down/left/right), short press or long press,
+usable as a command in ESPHome or Home Assistant. See [Gesture navigation](#-gesture-navigation).
 
 ### ⚠️ Drawbacks
 
@@ -91,12 +92,12 @@ fingerprint_FPC2532:
     ...
   on_finger_scan_invalid:
     ...
+  # optional gesture navigation, see "Gesture navigation" below
   navigation_mode: true
   navigation_time: 5s
+  gesture_event: esphome.fingerprint_gesture
   on_swipe_left:
-    - logger.log: "Swipe left"
-  on_short_press:
-    - logger.log: "Short press"
+    ...
 ```
 
 ---
@@ -128,10 +129,10 @@ The configuration consists of:
 | `time_before_sleep_ms`    | time   | Idle time before sleep. Default: 0 ms                               |
 | `delay_before_irq_ms`     | time   | Delay after IRQ before communication. Default: 1 ms                 |
 | `finger_scan_interval_ms` | time   | Delay between scan attempts. Default: 34 ms                         |
-| `navigation_mode`         | bool   | After a successful identification, enter navigation mode to accept one gesture. Default: false |
-| `navigation_time`         | time   | How long navigation mode waits for a gesture before returning to identify. Min 500 ms. Default: 5 s |
-| `navigation_orientation`  | int    | Sensor mounting rotation for gesture directions: 0, 90, 180 or 270 degrees. Default: 0 |
-| `gesture_event`           | string | Optional. Fires a Home Assistant event with this name (must start with `esphome.`) for every navigation gesture, with `gesture` and `finger_id` as data. Requires `api:` |
+| `navigation_mode`         | bool   | After a successful identification, accept one gesture. See [Gesture navigation](#-gesture-navigation). Default: false |
+| `navigation_time`         | time   | How long to wait for the finger to be lifted, and then for a gesture, before returning to identify. Min 500 ms. Default: 5 s |
+| `navigation_orientation`  | int    | Sensor mounting rotation for gesture directions: 0, 90, 180 or 270 (degrees). Default: 0 |
+| `gesture_event`           | string | Optional. Name of a Home Assistant event fired for every gesture (must start with `esphome.`). Requires `api:` |
 | `password`                | string | Required. Unique HW ID from first boot. Detects if the physical sensor module has been swapped for a different unit; not a secret and not a defense against UART-bus access. |
 
 ---
@@ -147,18 +148,51 @@ The configuration consists of:
 | `on_enrollment_scan`       | Finger scanned during enrollment  |
 | `on_enrollment_done`       | Enrollment successful             |
 | `on_enrollment_failed`     | Enrollment failed                 |
-| `on_navigation`            | Any gesture in navigation mode (`gesture`: 1=Up, 2=Down, 3=Right, 4=Left, 5=Press, 6=LongPress; `finger_id`) |
-| `on_swipe_up`              | Swipe up in navigation mode       |
-| `on_swipe_down`            | Swipe down in navigation mode     |
-| `on_swipe_left`            | Swipe left in navigation mode     |
-| `on_swipe_right`           | Swipe right in navigation mode    |
-| `on_short_press`           | Short press in navigation mode    |
-| `on_long_press`            | Long press in navigation mode     |
+| `on_navigation`            | Any gesture. Variables: `gesture` (1=Up, 2=Down, 3=Right, 4=Left, 5=Press, 6=LongPress), `finger_id` |
+| `on_swipe_up`              | Swipe up. Variable: `finger_id`   |
+| `on_swipe_down`            | Swipe down. Variable: `finger_id` |
+| `on_swipe_left`            | Swipe left. Variable: `finger_id` |
+| `on_swipe_right`           | Swipe right. Variable: `finger_id` |
+| `on_short_press`           | Short press. Variable: `finger_id` |
+| `on_long_press`            | Long press. Variable: `finger_id` |
 
-Navigation triggers fire only during navigation mode (`navigation_mode: true`): after a successful
-identification, once the finger has been lifted, the sensor accepts **one** gesture within
-`navigation_time` and then returns to identify.
-All navigation triggers provide `finger_id`: the finger whose identification opened the navigation window.
+The navigation triggers (`on_navigation`, `on_swipe_*`, `on_short_press`, `on_long_press`) fire only with
+`navigation_mode: true`, see [Gesture navigation](#-gesture-navigation).
+
+---
+
+## 🎮 Gesture navigation
+
+With `navigation_mode: true` a successful identification unlocks **one** gesture:
+
+1. The sensor identifies a finger (`on_finger_scan_matched`).
+2. The component waits until the finger is lifted, so the identifying touch is not taken as a gesture.
+3. Navigation mode starts: the sensor waits up to `navigation_time` for one gesture
+   (swipe up/down/left/right, short press, long press).
+4. The first gesture fires `on_navigation` and the matching `on_swipe_*` / `on_short_press` / `on_long_press`
+   trigger, with `finger_id` = the finger identified in step 1. Further gestures are ignored.
+5. The sensor goes back to identify mode after the gesture, or when `navigation_time` expires without one.
+
+If the finger stays on the sensor longer than `navigation_time` after the identification, navigation is skipped
+and identify resumes. A failed identification never opens navigation. `on_finger_scan_start` does not fire for
+touches during navigation.
+
+```yaml
+fingerprint_FPC2532:
+  navigation_mode: true
+  navigation_time: 5s
+  navigation_orientation: 0      # 0, 90, 180, 270
+  on_swipe_left:
+    - logger.log:
+        format: "Swipe left by finger %u"
+        args: [finger_id]
+  on_long_press:
+    - light.toggle: green_led
+```
+
+**Orientation:** gesture directions are relative to the sensor. If it is mounted rotated, set
+`navigation_orientation` (degrees): swipe towards what should be "right" and change it in 90° steps until
+the logs show `Gesture.Right`.
 
 ### Using gestures in Home Assistant
 
@@ -181,14 +215,15 @@ triggers:
     event_type: esphome.fingerprint_gesture
     event_data:
       gesture: swipe_left
-      finger_id: "3"        # optional
+      finger_id: "3"        # optional: only this finger
 actions:
   - action: light.toggle
     target:
       entity_id: light.garage
 ```
 
-If no events arrive, enable *Allow the device to perform Home Assistant actions* in the ESPHome device options in Home Assistant.
+You can watch the events in Home Assistant under *Developer tools → Events* (listen to `esphome.fingerprint_gesture`).
+If none arrive, enable *Allow the device to perform Home Assistant actions* in the ESPHome device options.
 
 ---
 
@@ -306,7 +341,7 @@ Using it as the password ensures that:
 
 > **Note:** GPIOXX placeholders must be replaced with actual pins.
 Replace secrets accordingly.
-This version includes LEDs, text sensors, API services, and all triggers. LEDs require a series resistor e.g. 100Ω or 220Ω for standard LEDs.
+This version includes LEDs, text sensors, API services, all triggers and gesture navigation. LEDs require a series resistor e.g. 100Ω or 220Ω for standard LEDs.
 
 --> [Here the example YAML](https://github.com/luigi-pi/fingerprint_fpc2532/blob/main/example_fingerprint_FPC2532.yaml)
 

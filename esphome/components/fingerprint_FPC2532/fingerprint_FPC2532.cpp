@@ -1350,8 +1350,17 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_navigation_event(fpc::f
   }
 
   if (result == FPC_RESULT_OK) {
-    if (size != sizeof(fpc::fpc_cmd_navigation_status_event_t)) {
-      ESP_LOGE(TAG, "CMD_NAVIGATION invalid size (%zu vs %zu)", size, sizeof(fpc::fpc_cmd_navigation_status_event_t));
+    if (size < sizeof(fpc::fpc_cmd_navigation_status_event_t)) {
+      ESP_LOGE(TAG, "CMD_NAVIGATION invalid size (%zu, too small)", size);
+      result = FPC_RESULT_INVALID_PARAM;
+    }
+  }
+
+  if (result == FPC_RESULT_OK) {
+    // The event ends with n_samples optional samples (sent only with CMD_NAV_CFG_SEND_SAMPLE_DATA).
+    size_t expected = sizeof(fpc::fpc_cmd_navigation_status_event_t) + cmd_nav->n_samples * sizeof(uint16_t);
+    if (size != expected) {
+      ESP_LOGE(TAG, "CMD_NAVIGATION invalid size (%zu vs %zu)", size, expected);
       result = FPC_RESULT_INVALID_PARAM;
     }
   }

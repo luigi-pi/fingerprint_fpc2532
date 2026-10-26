@@ -1,3 +1,5 @@
+import logging
+
 from esphome import automation, pins
 from esphome.core import CORE, Lambda
 import esphome.codegen as cg
@@ -18,6 +20,8 @@ from esphome.const import (
     CONF_RESET_PIN,
     CONF_TRIGGER_ID,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 CODEOWNERS = ["@luigi-pi"]
 DEPENDENCIES = ["uart"]
@@ -157,6 +161,19 @@ def add_gesture_event(config):
         config[CONF_ON_NAVIGATION] = [existing, action]
     return config
 
+def warn_navigation_disabled(config):
+    """Navigation triggers only fire in navigation mode: flag configs where they can never run."""
+    if not config[CONF_NAVIGATION_MODE]:
+        used = [key for key in (CONF_ON_NAVIGATION, *GESTURE_TRIGGERS) if config.get(key)]
+        if used:
+            _LOGGER.warning(
+                "fingerprint_FPC2532: %s configured but navigation_mode is false; "
+                "these triggers will never fire. Set navigation_mode: true.",
+                ", ".join(used),
+            )
+    return config
+
+
 EnrollmentAction = fingerprint_FPC2532_ns.class_("EnrollmentAction", automation.Action)
 CancelEnrollmentAction = fingerprint_FPC2532_ns.class_(
     "CancelEnrollmentAction", automation.Action
@@ -265,7 +282,8 @@ CONFIG_SCHEMA = cv.All(
         }
     )
     .extend(cv.polling_component_schema("500ms"))
-    .extend(uart.UART_DEVICE_SCHEMA)
+    .extend(uart.UART_DEVICE_SCHEMA),
+    warn_navigation_disabled,
 )
 
 

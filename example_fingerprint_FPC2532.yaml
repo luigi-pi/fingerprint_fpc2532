@@ -134,6 +134,31 @@ fingerprint_FPC2532:
     - light.turn_off:
         id: red_led
 
+  # --- Gesture navigation (optional) ---
+  # After a successful identification, lift the finger: the sensor then accepts ONE gesture
+  # (swipe up/down/left/right, short or long press) within navigation_time.
+  navigation_mode: true
+  navigation_time: 5s
+  navigation_orientation: 0          # 0, 90, 180, 270 degrees (sensor mounting rotation)
+  # Fires a Home Assistant event for every gesture, with data: gesture, finger_id
+  gesture_event: esphome.fingerprint_gesture
+
+  on_navigation:
+    - text_sensor.template.publish:
+        id: fingerprint_state
+        state: !lambda 'return "Gesture " + fingerprint_FPC2532::gesture_to_string(gesture) + " by finger " + to_string(finger_id);'
+    - light.turn_on:
+        id: blue_led
+    - delay: 300ms
+    - light.turn_off:
+        id: blue_led
+
+  # Per-gesture triggers (finger_id is available in each of them)
+  on_long_press:
+    - logger.log:
+        format: "Long press by finger %u"
+        args: [finger_id]
+
 api:
   encryption:
     key: !secret my_api_password
@@ -191,8 +216,8 @@ text_sensor:
     last_finger_id:
       name: "Last Matched Finger"
   - platform: template
-  id: fingerprint_state
-  name: "Scan Result"
+    id: fingerprint_state
+    name: "Scan Result"
 
   - platform: template
     id: text_enrollment_feedback
