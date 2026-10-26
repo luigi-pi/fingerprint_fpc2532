@@ -91,6 +91,12 @@ fingerprint_FPC2532:
     ...
   on_finger_scan_invalid:
     ...
+  navigation_mode: true
+  navigation_time: 5s
+  on_navigation:
+    - logger.log:
+        format: "Gesture %u"
+        args: [gesture]
 ```
 
 ---
@@ -122,6 +128,8 @@ The configuration consists of:
 | `time_before_sleep_ms`    | time   | Idle time before sleep. Default: 0 ms                               |
 | `delay_before_irq_ms`     | time   | Delay after IRQ before communication. Default: 1 ms                 |
 | `finger_scan_interval_ms` | time   | Delay between scan attempts. Default: 34 ms                         |
+| `navigation_mode`         | bool   | After a successful identification, enter navigation mode to accept one gesture. Default: false |
+| `navigation_time`         | time   | How long navigation mode waits for a gesture before returning to identify. Min 500 ms. Default: 5 s |
 | `password`                | string | Required. Unique HW ID from first boot. Detects if the physical sensor module has been swapped for a different unit; not a secret and not a defense against UART-bus access. |
 
 ---
@@ -137,6 +145,7 @@ The configuration consists of:
 | `on_enrollment_scan`       | Finger scanned during enrollment  |
 | `on_enrollment_done`       | Enrollment successful             |
 | `on_enrollment_failed`     | Enrollment failed                 |
+| `on_navigation`            | Gesture received in navigation mode (`gesture`: 1=Up, 2=Down, 3=Right, 4=Left, 5=Press, 6=LongPress) |
 
 ---
 

@@ -208,6 +208,8 @@ static const char *app_state_wait_str_(uint16_t app_state) {
       return "wait to receive config";
     case APP_STATE_SET_CONFIG:
       return "wait to SET config";
+    case APP_STATE_WAIT_NAVIGATION:
+      return "wait for Navigation gesture";
   }
   return "app state Unknown";
 }
@@ -226,6 +228,8 @@ void FingerprintFPC2532Component::setup() {
   this->device_state_ = 0;
   this->n_templates_on_device_ = 0;
   this->delay_until_ = 0;
+  this->navigation_pending_ = false;
+  this->navigation_event_received_ = false;
   this->has_power_pin_ = (this->sensor_power_pin_ != nullptr);
   if (this->has_power_pin_) {
         this->sensor_power_pin_->setup();
@@ -464,15 +468,44 @@ void FingerprintFPC2532Component::process_state(void) {
       if (this->device_ready_ && ((this->device_state_ & STATE_IDENTIFY) == 0)) {
         fpc::fpc_id_type_t id_type = {ID_TYPE_ALL, 0};
         if (this->delay_elapsed(300)) {
-          this->fpc_cmd_identify_request(&id_type, 0);
+          if (this->navigation_pending_) {
+            // Identify finished with a match: accept one gesture for navigation_time_ms_
+            this->navigation_pending_ = false;
+            this->navigation_event_received_ = false;
+            if (this->fpc_cmd_navigation_request(CMD_NAV_CFG_ORIENTATION_0) == FPC_RESULT_OK) {
+              ESP_LOGI(TAG, "Starting navigation (%" PRIu32 " ms)", this->navigation_time_ms_);
+              this->navigation_started_at_ = millis();
+              next_state = APP_STATE_WAIT_NAVIGATION;
+            } else {
+              ESP_LOGW(TAG, "Navigation request failed, back to identify");
+              this->fpc_cmd_identify_request(&id_type, 0);
+            }
+          } else {
+            this->fpc_cmd_identify_request(&id_type, 0);
+          }
         }
+      }
+      break;
+    case APP_STATE_WAIT_NAVIGATION:
+      // Exit on the first gesture or when navigation_time_ms_ expires; abort returns to identify.
+      if (this->navigation_event_received_) {
+        ESP_LOGI(TAG, "Navigation gesture received, exiting navigation");
+        this->navigation_event_received_ = false;
+        this->fpc_cmd_abort();
+        next_state = APP_STATE_WAIT_ABORT;
+      } else if (millis() - this->navigation_started_at_ > this->navigation_time_ms_) {
+        ESP_LOGI(TAG, "Navigation time elapsed without gesture, exiting navigation");
+        this->fpc_cmd_abort();
+        next_state = APP_STATE_WAIT_ABORT;
       }
       break;
     case APP_STATE_WAIT_ABORT:
       ESP_LOGI(TAG, "Aborting current operation..");
-      if (this->device_ready_ && ((this->device_state_ & (STATE_ENROLL | STATE_IDENTIFY)) == 0)) {
+      if (this->device_ready_ && ((this->device_state_ & (STATE_ENROLL | STATE_IDENTIFY | STATE_NAVIGATION)) == 0)) {
         ESP_LOGI(TAG, "Operation aborted");
         enroll_status_received_ = false;
+        this->navigation_pending_ = false;
+        this->navigation_event_received_ = false;
         if (this->enroll_request == true) {
           fpc::fpc_id_type_t id_type = this->id_type_enroll_request;
           ESP_LOGI(TAG, "Starting enroll");
@@ -1162,6 +1195,9 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_identify(fpc::fpc_cmd_h
 
   if (id_res->match == IDENTIFY_RESULT_MATCH) {
     this->finger_scan_matched_callback_.call(finger_id, tag);
+    if (this->navigation_mode_ && this->app_state == APP_STATE_WAIT_IDENTIFY) {
+      this->navigation_pending_ = true;
+    }
   }
   if (id_res->match == IDENTIFY_RESULT_NO_MATCH) {
     this->finger_scan_unmatched_callback_.call();
@@ -1314,8 +1350,14 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_navigation_event(fpc::f
 
   if (result == FPC_RESULT_OK) {
     ESP_LOGI(TAG, "<<< CMD_NAVIGATION.gesture = %s", get_gesture_str_(cmd_nav->gesture));
-    // Only notify listeners for a valid event: on error cmd_nav may be null or truncated.
-    this->navigation_callback_.call(cmd_nav->gesture);
+    // Only one gesture is accepted per navigation window; later ones (before the abort lands) are ignored.
+    if (this->app_state == APP_STATE_WAIT_NAVIGATION && !this->navigation_event_received_ &&
+        cmd_nav->gesture != CMD_NAV_EVENT_NONE) {
+      this->navigation_event_received_ = true;
+      this->navigation_callback_.call(cmd_nav->gesture);
+    } else {
+      ESP_LOGD(TAG, "Navigation gesture ignored (outside navigation window or already handled)");
+    }
   }
 
   return result;

@@ -36,6 +36,9 @@ CONF_MAX_CONSECUTIVE_FAILS = "max_consecutive_fails"
 CONF_TIME_BEFORE_SLEEP = "time_before_sleep_ms"
 CONF_DELAY_BEFORE_IRQ = "delay_before_irq_ms"
 CONF_FINGER_SCAN_INTERVAL = "finger_scan_interval_ms"
+CONF_NAVIGATION_MODE = "navigation_mode"
+CONF_NAVIGATION_TIME = "navigation_time"
+CONF_ON_NAVIGATION = "on_navigation"
 INITIAL_PASSWORD = "0"
 CFG_UART_BAUDRATE_9600 = 1
 CFG_UART_BAUDRATE_19200 = 2
@@ -91,6 +94,10 @@ EnrollmentFailedTrigger = fingerprint_FPC2532_ns.class_(
     "EnrollmentFailedTrigger", automation.Trigger.template(cg.uint16)
 )
 
+NavigationTrigger = fingerprint_FPC2532_ns.class_(
+    "NavigationTrigger", automation.Trigger.template(cg.uint16)
+)
+
 EnrollmentAction = fingerprint_FPC2532_ns.class_("EnrollmentAction", automation.Action)
 CancelEnrollmentAction = fingerprint_FPC2532_ns.class_(
     "CancelEnrollmentAction", automation.Action
@@ -124,7 +131,16 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_FINGER_SCAN_INTERVAL, default="34ms"): cv.All(
             cv.positive_time_period_milliseconds, cv.Range(max=cv.TimePeriod(milliseconds=1020))
             ),
+            cv.Optional(CONF_NAVIGATION_MODE, default=False): cv.boolean,
+            cv.Optional(CONF_NAVIGATION_TIME, default="5s"): cv.All(
+            cv.positive_time_period_milliseconds, cv.Range(min=cv.TimePeriod(milliseconds=500))
+            ),
             cv.Optional(CONF_PASSWORD, default=INITIAL_PASSWORD): cv.string_strict,
+            cv.Optional(CONF_ON_NAVIGATION): automation.validate_automation(
+                {
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(NavigationTrigger),
+                }
+            ),
             cv.Optional(CONF_ON_FINGER_SCAN_START): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -225,6 +241,9 @@ async def to_code(config):
         uart_irq_before_tx = config[CONF_UART_IRQ_BEFORE_TX]
         cg.add(var.set_uart_irq_before_tx(uart_irq_before_tx))
 
+    cg.add(var.set_navigation_mode(config[CONF_NAVIGATION_MODE]))
+    cg.add(var.set_navigation_time_ms(config[CONF_NAVIGATION_TIME]))
+
     if CONF_SENSOR_POWER_PIN in config:
         sensor_power_pin = await cg.gpio_pin_expression(config[CONF_SENSOR_POWER_PIN])
         cg.add(var.set_sensor_power_pin(sensor_power_pin))
@@ -259,6 +278,10 @@ async def to_code(config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(cg.uint16, "capture_error")], conf)
     
+    for conf in config.get(CONF_ON_NAVIGATION, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [(cg.uint16, "gesture")], conf)
+
     for conf in config.get(CONF_ON_ENROLLMENT_SCAN, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(cg.uint16, "finger_id")], conf)

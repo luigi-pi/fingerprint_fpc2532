@@ -21,6 +21,7 @@ const uint8_t MAX_NUMBER_OF_TEMPLATES = 30;
 static const std::string INITIAL_PASSWORD = "0";
 static constexpr uint32_t CMD_RESPONSE_TIMEOUT_MS = 1000;
 static constexpr uint32_t DEVICE_STARTUP_DELAY_MS = 3000;
+static constexpr uint32_t DEFAULT_NAVIGATION_TIME_MS = 5000;
 static const uint16_t MAX_RESYNC_BYTES = 256;    
 static const uint32_t MAX_RESYNC_TIME_MS = 50;
 typedef enum {
@@ -32,7 +33,8 @@ typedef enum {
   APP_STATE_WAIT_IDENTIFY,
   APP_STATE_WAIT_ABORT,
   APP_STATE_WAIT_DELETE_TEMPLATES,
-  APP_STATE_SET_CONFIG
+  APP_STATE_SET_CONFIG,
+  APP_STATE_WAIT_NAVIGATION
 } app_state_t;
 
 class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDevice {
@@ -66,6 +68,8 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   void set_stop_mode_uart(bool stop_mode_uart) { this->stop_mode_uart_ = stop_mode_uart; }
   void set_status_at_boot(bool status_at_boot) { this->status_at_boot_ = status_at_boot; }
   void set_uart_irq_before_tx(bool uart_irq_before_tx) { this->uart_irq_before_tx_ = uart_irq_before_tx; }
+  void set_navigation_mode(bool navigation_mode) { this->navigation_mode_ = navigation_mode; }
+  void set_navigation_time_ms(uint32_t navigation_time_ms) { this->navigation_time_ms_ = navigation_time_ms; }
   void set_status_sensor(sensor::Sensor *status_sensor) { this->status_sensor_ = status_sensor; }
   void set_text_status_sensor(text_sensor::TextSensor *text_status_sensor) {
     this->text_status_sensor_ = text_status_sensor;
@@ -167,6 +171,12 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   bool stop_mode_uart_ = false;
   bool status_at_boot_ = true;
   bool uart_irq_before_tx_ = true;
+  // Navigation: after a successful identify, accept a single gesture for navigation_time_ms_.
+  bool navigation_mode_ = false;
+  uint32_t navigation_time_ms_ = DEFAULT_NAVIGATION_TIME_MS;
+  bool navigation_pending_ = false;         // match received, enter navigation when identify has finished
+  bool navigation_event_received_ = false;  // first gesture received, exit navigation
+  uint32_t navigation_started_at_{0};
 
   bool has_power_pin_ = false;
   void sensor_wakeup_();
@@ -275,6 +285,13 @@ class FingerScanInvalidTrigger : public Trigger<uint16_t> {
  public:
   explicit FingerScanInvalidTrigger(FingerprintFPC2532Component *parent) {
     parent->add_on_finger_scan_invalid_callback([this](uint16_t capture_error) { this->trigger(capture_error); });
+  }
+};
+
+class NavigationTrigger : public Trigger<uint16_t> {
+ public:
+  explicit NavigationTrigger(FingerprintFPC2532Component *parent) {
+    parent->add_on_navigation_callback([this](uint16_t gesture) { this->trigger(gesture); });
   }
 };
 
