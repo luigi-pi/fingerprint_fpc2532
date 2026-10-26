@@ -680,6 +680,26 @@ fpc::fpc_result_t FingerprintFPC2532Component::fpc_cmd_identify_request(fpc::fpc
 
   return result;
 }
+fpc::fpc_result_t FingerprintFPC2532Component::fpc_cmd_navigation_request(uint8_t orientation) {
+  fpc::fpc_result_t result = FPC_RESULT_OK;
+  fpc::fpc_cmd_navigation_request_t cmd_req;
+
+  if (orientation > CMD_NAV_CFG_ORIENTATION_MASK) {
+    ESP_LOGE(TAG, "Navigation: Invalid parameter (orientation=%u)", orientation);
+    result = FPC_RESULT_INVALID_PARAM;
+  }
+
+  if (result == FPC_RESULT_OK) {
+    cmd_req.cmd.cmd_id = CMD_NAVIGATION;
+    cmd_req.cmd.type = FPC_FRAME_TYPE_CMD_REQUEST;
+    cmd_req.config = orientation;
+
+    ESP_LOGI(TAG, ">>> CMD_NAVIGATION (orientation=%u)", orientation);
+    result = this->fpc_send_request(&cmd_req.cmd, sizeof(fpc::fpc_cmd_navigation_request_t));
+  }
+
+  return result;
+}
 fpc::fpc_result_t FingerprintFPC2532Component::fpc_cmd_abort(void) {
   fpc::fpc_result_t result = FPC_RESULT_OK;
   fpc::fpc_cmd_hdr_t cmd;
@@ -904,11 +924,9 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd(uint8_t *frame_payload,
       case CMD_LIST_TEMPLATES:
         return parse_cmd_list_templates(cmd_hdr, size);
         break;
-      /*
       case CMD_NAVIGATION:
         return parse_cmd_navigation_event(cmd_hdr, size);
         break;
-      */
       case CMD_GET_SYSTEM_CONFIG:
         return parse_cmd_get_system_config(cmd_hdr, size);
         break;
@@ -1278,6 +1296,30 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_get_system_config(fpc::
   return result;
 }
 
+fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_navigation_event(fpc::fpc_cmd_hdr_t *cmd_hdr, size_t size) {
+  fpc::fpc_result_t result = FPC_RESULT_OK;
+  fpc::fpc_cmd_navigation_status_event_t *cmd_nav = (fpc::fpc_cmd_navigation_status_event_t *) cmd_hdr;
+
+  if (!cmd_nav) {
+    ESP_LOGE(TAG, "CMD_NAVIGATION: Invalid parameter");
+    result = FPC_RESULT_INVALID_PARAM;
+  }
+
+  if (result == FPC_RESULT_OK) {
+    if (size != sizeof(fpc::fpc_cmd_navigation_status_event_t)) {
+      ESP_LOGE(TAG, "CMD_NAVIGATION invalid size (%zu vs %zu)", size, sizeof(fpc::fpc_cmd_navigation_status_event_t));
+      result = FPC_RESULT_INVALID_PARAM;
+    }
+  }
+
+  if (result == FPC_RESULT_OK) {
+    ESP_LOGI(TAG, "<<< CMD_NAVIGATION.gesture = %s", get_gesture_str_(cmd_nav->gesture));
+    // Only notify listeners for a valid event: on error cmd_nav may be null or truncated.
+    this->navigation_callback_.call(cmd_nav->gesture);
+  }
+
+  return result;
+}
 /*
 ------------------------
 HAL FUNCTIONS DEFINITONS

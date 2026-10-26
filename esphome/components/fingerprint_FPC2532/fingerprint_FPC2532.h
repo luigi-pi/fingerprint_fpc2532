@@ -119,6 +119,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   // request public functions
   fpc::fpc_result_t fpc_cmd_abort(void);
   fpc::fpc_result_t fpc_cmd_system_config_get_request(uint8_t type);
+  fpc::fpc_result_t fpc_cmd_navigation_request(uint8_t orientation);
   //  Callbacks
   template<typename F> void add_on_finger_scan_matched_callback(F &&callback) {
     this->finger_scan_matched_callback_.add(std::forward<F>(callback));
@@ -140,6 +141,9 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   }
   template<typename F> void add_on_enrollment_failed_callback(F &&callback) {
     this->enrollment_failed_callback_.add(std::forward<F>(callback));
+  }
+  template<typename F> void add_on_navigation_callback(F &&callback) {
+    this->navigation_callback_.add(std::forward<F>(callback));
   }
 
  protected:
@@ -200,6 +204,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   CallbackManager<void(uint16_t)> enrollment_scan_callback_;
   CallbackManager<void(uint16_t)> enrollment_done_callback_;
   CallbackManager<void(uint16_t)> enrollment_failed_callback_;
+  CallbackManager<void(uint16_t)> navigation_callback_;
 
   //--- State Machine Functions/declarations ---
   bool device_ready_;
@@ -234,6 +239,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   fpc::fpc_result_t parse_cmd_identify(fpc::fpc_cmd_hdr_t *cmd_hdr, size_t size);
   fpc::fpc_result_t parse_cmd_list_templates(fpc::fpc_cmd_hdr_t *cmd_hdr, size_t size);
   fpc::fpc_result_t parse_cmd_get_system_config(fpc::fpc_cmd_hdr_t *cmd_hdr, size_t size);
+  fpc::fpc_result_t parse_cmd_navigation_event(fpc::fpc_cmd_hdr_t *cmd_hdr, size_t size);
 
   //--- HAL functions ---
   fpc::fpc_result_t fpc_hal_init(void);
