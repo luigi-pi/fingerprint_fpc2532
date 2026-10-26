@@ -38,6 +38,9 @@ CONF_DELAY_BEFORE_IRQ = "delay_before_irq_ms"
 CONF_FINGER_SCAN_INTERVAL = "finger_scan_interval_ms"
 CONF_NAVIGATION_MODE = "navigation_mode"
 CONF_NAVIGATION_TIME = "navigation_time"
+CONF_NAVIGATION_ORIENTATION = "navigation_orientation"
+# Degrees -> CMD_NAV_CFG_ORIENTATION_* in fpc_api.h
+NAVIGATION_ORIENTATION_OPTIONS = {0: 0, 90: 1, 180: 2, 270: 3}
 CONF_ON_NAVIGATION = "on_navigation"
 # Gesture codes, see CMD_NAV_EVENT_* in fpc_api.h
 GESTURE_TRIGGERS = {
@@ -147,6 +150,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_NAVIGATION_MODE, default=False): cv.boolean,
             cv.Optional(CONF_NAVIGATION_TIME, default="5s"): cv.All(
             cv.positive_time_period_milliseconds, cv.Range(min=cv.TimePeriod(milliseconds=500))
+            ),
+            cv.Optional(CONF_NAVIGATION_ORIENTATION, default=0): cv.All(
+                cv.int_, cv.enum(NAVIGATION_ORIENTATION_OPTIONS)
             ),
             cv.Optional(CONF_PASSWORD, default=INITIAL_PASSWORD): cv.string_strict,
             cv.Optional(CONF_ON_NAVIGATION): automation.validate_automation(
@@ -264,6 +270,7 @@ async def to_code(config):
 
     cg.add(var.set_navigation_mode(config[CONF_NAVIGATION_MODE]))
     cg.add(var.set_navigation_time_ms(config[CONF_NAVIGATION_TIME]))
+    cg.add(var.set_navigation_orientation(config[CONF_NAVIGATION_ORIENTATION]))
 
     if CONF_SENSOR_POWER_PIN in config:
         sensor_power_pin = await cg.gpio_pin_expression(config[CONF_SENSOR_POWER_PIN])

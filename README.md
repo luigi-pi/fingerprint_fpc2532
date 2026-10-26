@@ -130,6 +130,7 @@ The configuration consists of:
 | `finger_scan_interval_ms` | time   | Delay between scan attempts. Default: 34 ms                         |
 | `navigation_mode`         | bool   | After a successful identification, enter navigation mode to accept one gesture. Default: false |
 | `navigation_time`         | time   | How long navigation mode waits for a gesture before returning to identify. Min 500 ms. Default: 5 s |
+| `navigation_orientation`  | int    | Sensor mounting rotation for gesture directions: 0, 90, 180 or 270 degrees. Default: 0 |
 | `password`                | string | Required. Unique HW ID from first boot. Detects if the physical sensor module has been swapped for a different unit; not a secret and not a defense against UART-bus access. |
 
 ---
@@ -138,7 +139,7 @@ The configuration consists of:
 
 | Trigger                    | Description                       |
 | -------------------------- | --------------------------------- |
-| `on_finger_scan_start`     | A finger touched the sensor       |
+| `on_finger_scan_start`     | A finger touched the sensor (identify/enroll; not in navigation mode) |
 | `on_finger_scan_invalid`   | Finger detected but scan failed   |
 | `on_finger_scan_matched`   | Fingerprint matched registered ID |
 | `on_finger_scan_unmatched` | Fingerprint not recognized        |

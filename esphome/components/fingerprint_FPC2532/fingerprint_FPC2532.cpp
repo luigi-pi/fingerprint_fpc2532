@@ -474,7 +474,7 @@ void FingerprintFPC2532Component::process_state(void) {
           if ((this->device_state_ & STATE_FINGER_DOWN) == 0) {
             this->navigation_pending_ = false;
             this->navigation_event_received_ = false;
-            if (this->fpc_cmd_navigation_request(CMD_NAV_CFG_ORIENTATION_0) == FPC_RESULT_OK) {
+            if (this->fpc_cmd_navigation_request(this->navigation_orientation_) == FPC_RESULT_OK) {
               ESP_LOGI(TAG, "Finger lost, starting navigation (%" PRIu32 " ms)", this->navigation_time_ms_);
               this->navigation_started_at_ = millis();
               next_state = APP_STATE_WAIT_NAVIGATION;
@@ -1035,8 +1035,8 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_status(fpc::fpc_cmd_hdr
       this->device_ready_ = false;
       ESP_LOGV(TAG, "device not ready");
     }
-    if ((this->device_state_ & STATE_FINGER_DOWN) &&
-        (this->device_state_ & (STATE_IDENTIFY | STATE_ENROLL | STATE_NAVIGATION))) {
+    // Not raised in navigation mode: a touch there is a gesture, reported by the navigation triggers.
+    if ((this->device_state_ & STATE_FINGER_DOWN) && (this->device_state_ & (STATE_IDENTIFY | STATE_ENROLL))) {
       this->finger_scan_start_callback_.call();
     }
     if ((this->device_state_ & STATE_IDENTIFY) && (status->app_fail_code != FPC_RESULT_OK)) {

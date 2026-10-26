@@ -70,6 +70,9 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   void set_uart_irq_before_tx(bool uart_irq_before_tx) { this->uart_irq_before_tx_ = uart_irq_before_tx; }
   void set_navigation_mode(bool navigation_mode) { this->navigation_mode_ = navigation_mode; }
   void set_navigation_time_ms(uint32_t navigation_time_ms) { this->navigation_time_ms_ = navigation_time_ms; }
+  void set_navigation_orientation(uint8_t navigation_orientation) {
+    this->navigation_orientation_ = navigation_orientation;
+  }
   void set_status_sensor(sensor::Sensor *status_sensor) { this->status_sensor_ = status_sensor; }
   void set_text_status_sensor(text_sensor::TextSensor *text_status_sensor) {
     this->text_status_sensor_ = text_status_sensor;
@@ -174,6 +177,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   // Navigation: after a successful identify, accept a single gesture for navigation_time_ms_.
   bool navigation_mode_ = false;
   uint32_t navigation_time_ms_ = DEFAULT_NAVIGATION_TIME_MS;
+  uint8_t navigation_orientation_ = CMD_NAV_CFG_ORIENTATION_0;  // CMD_NAV_CFG_ORIENTATION_*
   bool navigation_pending_ = false;         // match received, enter navigation when identify has finished
   bool navigation_event_received_ = false;  // first gesture received, exit navigation
   uint32_t navigation_started_at_{0};
