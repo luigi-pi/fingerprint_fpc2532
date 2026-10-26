@@ -39,6 +39,15 @@ CONF_FINGER_SCAN_INTERVAL = "finger_scan_interval_ms"
 CONF_NAVIGATION_MODE = "navigation_mode"
 CONF_NAVIGATION_TIME = "navigation_time"
 CONF_ON_NAVIGATION = "on_navigation"
+# Gesture codes, see CMD_NAV_EVENT_* in fpc_api.h
+GESTURE_TRIGGERS = {
+    "on_swipe_up": 1,
+    "on_swipe_down": 2,
+    "on_swipe_right": 3,
+    "on_swipe_left": 4,
+    "on_short_press": 5,
+    "on_long_press": 6,
+}
 INITIAL_PASSWORD = "0"
 CFG_UART_BAUDRATE_9600 = 1
 CFG_UART_BAUDRATE_19200 = 2
@@ -98,6 +107,10 @@ NavigationTrigger = fingerprint_FPC2532_ns.class_(
     "NavigationTrigger", automation.Trigger.template(cg.uint16)
 )
 
+GestureTrigger = fingerprint_FPC2532_ns.class_(
+    "GestureTrigger", automation.Trigger.template()
+)
+
 EnrollmentAction = fingerprint_FPC2532_ns.class_("EnrollmentAction", automation.Action)
 CancelEnrollmentAction = fingerprint_FPC2532_ns.class_(
     "CancelEnrollmentAction", automation.Action
@@ -141,6 +154,14 @@ CONFIG_SCHEMA = cv.All(
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(NavigationTrigger),
                 }
             ),
+            **{
+                cv.Optional(key): automation.validate_automation(
+                    {
+                        cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(GestureTrigger),
+                    }
+                )
+                for key in GESTURE_TRIGGERS
+            },
             cv.Optional(CONF_ON_FINGER_SCAN_START): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -281,6 +302,11 @@ async def to_code(config):
     for conf in config.get(CONF_ON_NAVIGATION, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(cg.uint16, "gesture")], conf)
+
+    for key, gesture in GESTURE_TRIGGERS.items():
+        for conf in config.get(key, []):
+            trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var, gesture)
+            await automation.build_automation(trigger, [], conf)
 
     for conf in config.get(CONF_ON_ENROLLMENT_SCAN, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

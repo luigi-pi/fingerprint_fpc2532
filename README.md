@@ -93,10 +93,10 @@ fingerprint_FPC2532:
     ...
   navigation_mode: true
   navigation_time: 5s
-  on_navigation:
-    - logger.log:
-        format: "Gesture %u"
-        args: [gesture]
+  on_swipe_left:
+    - logger.log: "Swipe left"
+  on_short_press:
+    - logger.log: "Short press"
 ```
 
 ---
@@ -145,7 +145,17 @@ The configuration consists of:
 | `on_enrollment_scan`       | Finger scanned during enrollment  |
 | `on_enrollment_done`       | Enrollment successful             |
 | `on_enrollment_failed`     | Enrollment failed                 |
-| `on_navigation`            | Gesture received in navigation mode (`gesture`: 1=Up, 2=Down, 3=Right, 4=Left, 5=Press, 6=LongPress) |
+| `on_navigation`            | Any gesture in navigation mode (`gesture`: 1=Up, 2=Down, 3=Right, 4=Left, 5=Press, 6=LongPress) |
+| `on_swipe_up`              | Swipe up in navigation mode       |
+| `on_swipe_down`            | Swipe down in navigation mode     |
+| `on_swipe_left`            | Swipe left in navigation mode     |
+| `on_swipe_right`           | Swipe right in navigation mode    |
+| `on_short_press`           | Short press in navigation mode    |
+| `on_long_press`            | Long press in navigation mode     |
+
+Navigation triggers fire only during navigation mode (`navigation_mode: true`): after a successful
+identification, once the finger has been lifted, the sensor accepts **one** gesture within
+`navigation_time` and then returns to identify.
 
 ---
 

@@ -177,6 +177,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   bool navigation_pending_ = false;         // match received, enter navigation when identify has finished
   bool navigation_event_received_ = false;  // first gesture received, exit navigation
   uint32_t navigation_started_at_{0};
+  uint32_t navigation_pending_since_{0};
 
   bool has_power_pin_ = false;
   void sensor_wakeup_();
@@ -292,6 +293,17 @@ class NavigationTrigger : public Trigger<uint16_t> {
  public:
   explicit NavigationTrigger(FingerprintFPC2532Component *parent) {
     parent->add_on_navigation_callback([this](uint16_t gesture) { this->trigger(gesture); });
+  }
+};
+
+// Fires only for one specific gesture (on_swipe_*, on_short_press, on_long_press).
+class GestureTrigger : public Trigger<> {
+ public:
+  GestureTrigger(FingerprintFPC2532Component *parent, uint16_t gesture) {
+    parent->add_on_navigation_callback([this, gesture](uint16_t received) {
+      if (received == gesture)
+        this->trigger();
+    });
   }
 };
 

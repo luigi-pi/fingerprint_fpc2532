@@ -467,22 +467,28 @@ void FingerprintFPC2532Component::process_state(void) {
     case APP_STATE_WAIT_IDENTIFY:
       if (this->device_ready_ && ((this->device_state_ & STATE_IDENTIFY) == 0)) {
         fpc::fpc_id_type_t id_type = {ID_TYPE_ALL, 0};
-        if (this->delay_elapsed(300)) {
-          if (this->navigation_pending_) {
-            // Identify finished with a match: accept one gesture for navigation_time_ms_
+        if (this->navigation_pending_) {
+          // Identify finished with a match. Wait for the finger to leave the sensor
+          // (EVENT_FINGER_LOST clears STATE_FINGER_DOWN), otherwise the still-present
+          // finger would be classified as the navigation gesture.
+          if ((this->device_state_ & STATE_FINGER_DOWN) == 0) {
             this->navigation_pending_ = false;
             this->navigation_event_received_ = false;
             if (this->fpc_cmd_navigation_request(CMD_NAV_CFG_ORIENTATION_0) == FPC_RESULT_OK) {
-              ESP_LOGI(TAG, "Starting navigation (%" PRIu32 " ms)", this->navigation_time_ms_);
+              ESP_LOGI(TAG, "Finger lost, starting navigation (%" PRIu32 " ms)", this->navigation_time_ms_);
               this->navigation_started_at_ = millis();
               next_state = APP_STATE_WAIT_NAVIGATION;
             } else {
               ESP_LOGW(TAG, "Navigation request failed, back to identify");
               this->fpc_cmd_identify_request(&id_type, 0);
             }
-          } else {
-            this->fpc_cmd_identify_request(&id_type, 0);
+          } else if (millis() - this->navigation_pending_since_ > this->navigation_time_ms_) {
+            // Finger kept on the sensor for the whole window: skip navigation, resume identify.
+            ESP_LOGW(TAG, "Finger not lifted within navigation time, skipping navigation");
+            this->navigation_pending_ = false;
           }
+        } else if (this->delay_elapsed(300)) {
+          this->fpc_cmd_identify_request(&id_type, 0);
         }
       }
       break;
@@ -1197,6 +1203,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_identify(fpc::fpc_cmd_h
     this->finger_scan_matched_callback_.call(finger_id, tag);
     if (this->navigation_mode_ && this->app_state == APP_STATE_WAIT_IDENTIFY) {
       this->navigation_pending_ = true;
+      this->navigation_pending_since_ = millis();
     }
   }
   if (id_res->match == IDENTIFY_RESULT_NO_MATCH) {
