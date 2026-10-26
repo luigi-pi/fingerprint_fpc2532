@@ -1204,6 +1204,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_identify(fpc::fpc_cmd_h
     if (this->navigation_mode_ && this->app_state == APP_STATE_WAIT_IDENTIFY) {
       this->navigation_pending_ = true;
       this->navigation_pending_since_ = millis();
+      this->navigation_finger_id_ = finger_id;
     }
   }
   if (id_res->match == IDENTIFY_RESULT_NO_MATCH) {
@@ -1361,7 +1362,7 @@ fpc::fpc_result_t FingerprintFPC2532Component::parse_cmd_navigation_event(fpc::f
     if (this->app_state == APP_STATE_WAIT_NAVIGATION && !this->navigation_event_received_ &&
         cmd_nav->gesture != CMD_NAV_EVENT_NONE) {
       this->navigation_event_received_ = true;
-      this->navigation_callback_.call(cmd_nav->gesture);
+      this->navigation_callback_.call(cmd_nav->gesture, this->navigation_finger_id_);
     } else {
       ESP_LOGD(TAG, "Navigation gesture ignored (outside navigation window or already handled)");
     }

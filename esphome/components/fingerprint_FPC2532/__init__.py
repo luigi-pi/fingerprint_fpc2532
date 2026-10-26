@@ -1,4 +1,5 @@
 from esphome import automation, pins
+from esphome.core import CORE, Lambda
 import esphome.codegen as cg
 from esphome.components import uart
 import esphome.config_validation as cv
@@ -42,6 +43,7 @@ CONF_NAVIGATION_ORIENTATION = "navigation_orientation"
 # Degrees -> CMD_NAV_CFG_ORIENTATION_* in fpc_api.h
 NAVIGATION_ORIENTATION_OPTIONS = {0: 0, 90: 1, 180: 2, 270: 3}
 CONF_ON_NAVIGATION = "on_navigation"
+CONF_GESTURE_EVENT = "gesture_event"
 # Gesture codes, see CMD_NAV_EVENT_* in fpc_api.h
 GESTURE_TRIGGERS = {
     "on_swipe_up": 1,
@@ -107,12 +109,53 @@ EnrollmentFailedTrigger = fingerprint_FPC2532_ns.class_(
 )
 
 NavigationTrigger = fingerprint_FPC2532_ns.class_(
-    "NavigationTrigger", automation.Trigger.template(cg.uint16)
+    "NavigationTrigger", automation.Trigger.template(cg.uint16, cg.uint16)
 )
 
 GestureTrigger = fingerprint_FPC2532_ns.class_(
-    "GestureTrigger", automation.Trigger.template()
+    "GestureTrigger", automation.Trigger.template(cg.uint16)
 )
+
+
+def validate_gesture_event(value):
+    value = cv.string_strict(value)
+    if not value.startswith("esphome."):
+        raise cv.Invalid("Home Assistant only accepts events whose name starts with 'esphome.'")
+    return value
+
+
+def add_gesture_event(config):
+    """Expand `gesture_event: <name>` into an on_navigation automation that fires a
+    Home Assistant event carrying the gesture name and the authorizing finger ID."""
+    if not isinstance(config, dict) or CONF_GESTURE_EVENT not in config:
+        return config
+    if "api" not in CORE.loaded_integrations:
+        raise cv.Invalid(
+            f"'{CONF_GESTURE_EVENT}' sends events to Home Assistant and requires the 'api:' component"
+        )
+    config = dict(config)
+    action = {
+        "homeassistant.event": {
+            "event": validate_gesture_event(config[CONF_GESTURE_EVENT]),
+            "data": {
+                "gesture": Lambda("return fingerprint_FPC2532::gesture_to_string(gesture);"),
+                "finger_id": Lambda("return to_string(finger_id);"),
+            },
+        }
+    }
+    existing = config.get(CONF_ON_NAVIGATION)
+    if existing is None:
+        config[CONF_ON_NAVIGATION] = [action]
+    elif isinstance(existing, list):
+        config[CONF_ON_NAVIGATION] = existing + [action]
+    elif isinstance(existing, dict) and "then" in existing:
+        existing = dict(existing)
+        then = existing["then"]
+        existing["then"] = (then if isinstance(then, list) else [then]) + [action]
+        config[CONF_ON_NAVIGATION] = existing
+    else:
+        config[CONF_ON_NAVIGATION] = [existing, action]
+    return config
 
 EnrollmentAction = fingerprint_FPC2532_ns.class_("EnrollmentAction", automation.Action)
 CancelEnrollmentAction = fingerprint_FPC2532_ns.class_(
@@ -121,6 +164,7 @@ CancelEnrollmentAction = fingerprint_FPC2532_ns.class_(
 DeleteAction = fingerprint_FPC2532_ns.class_("DeleteAction", automation.Action)
 
 CONFIG_SCHEMA = cv.All(
+    add_gesture_event,
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(FingerprintFPC2532Component),
@@ -148,6 +192,7 @@ CONFIG_SCHEMA = cv.All(
             cv.positive_time_period_milliseconds, cv.Range(max=cv.TimePeriod(milliseconds=1020))
             ),
             cv.Optional(CONF_NAVIGATION_MODE, default=False): cv.boolean,
+            cv.Optional(CONF_GESTURE_EVENT): validate_gesture_event,
             cv.Optional(CONF_NAVIGATION_TIME, default="5s"): cv.All(
             cv.positive_time_period_milliseconds, cv.Range(min=cv.TimePeriod(milliseconds=500))
             ),
@@ -308,12 +353,14 @@ async def to_code(config):
     
     for conf in config.get(CONF_ON_NAVIGATION, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [(cg.uint16, "gesture")], conf)
+        await automation.build_automation(
+            trigger, [(cg.uint16, "gesture"), (cg.uint16, "finger_id")], conf
+        )
 
     for key, gesture in GESTURE_TRIGGERS.items():
         for conf in config.get(key, []):
             trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var, gesture)
-            await automation.build_automation(trigger, [], conf)
+            await automation.build_automation(trigger, [(cg.uint16, "finger_id")], conf)
 
     for conf in config.get(CONF_ON_ENROLLMENT_SCAN, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

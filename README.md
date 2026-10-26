@@ -131,6 +131,7 @@ The configuration consists of:
 | `navigation_mode`         | bool   | After a successful identification, enter navigation mode to accept one gesture. Default: false |
 | `navigation_time`         | time   | How long navigation mode waits for a gesture before returning to identify. Min 500 ms. Default: 5 s |
 | `navigation_orientation`  | int    | Sensor mounting rotation for gesture directions: 0, 90, 180 or 270 degrees. Default: 0 |
+| `gesture_event`           | string | Optional. Fires a Home Assistant event with this name (must start with `esphome.`) for every navigation gesture, with `gesture` and `finger_id` as data. Requires `api:` |
 | `password`                | string | Required. Unique HW ID from first boot. Detects if the physical sensor module has been swapped for a different unit; not a secret and not a defense against UART-bus access. |
 
 ---
@@ -146,7 +147,7 @@ The configuration consists of:
 | `on_enrollment_scan`       | Finger scanned during enrollment  |
 | `on_enrollment_done`       | Enrollment successful             |
 | `on_enrollment_failed`     | Enrollment failed                 |
-| `on_navigation`            | Any gesture in navigation mode (`gesture`: 1=Up, 2=Down, 3=Right, 4=Left, 5=Press, 6=LongPress) |
+| `on_navigation`            | Any gesture in navigation mode (`gesture`: 1=Up, 2=Down, 3=Right, 4=Left, 5=Press, 6=LongPress; `finger_id`) |
 | `on_swipe_up`              | Swipe up in navigation mode       |
 | `on_swipe_down`            | Swipe down in navigation mode     |
 | `on_swipe_left`            | Swipe left in navigation mode     |
@@ -157,6 +158,37 @@ The configuration consists of:
 Navigation triggers fire only during navigation mode (`navigation_mode: true`): after a successful
 identification, once the finger has been lifted, the sensor accepts **one** gesture within
 `navigation_time` and then returns to identify.
+All navigation triggers provide `finger_id`: the finger whose identification opened the navigation window.
+
+### Using gestures in Home Assistant
+
+Set `gesture_event` and the component fires a Home Assistant event for each gesture, no extra YAML needed:
+
+```yaml
+api:
+
+fingerprint_FPC2532:
+  navigation_mode: true
+  gesture_event: esphome.fingerprint_gesture
+```
+
+Event data: `gesture` (`swipe_up`, `swipe_down`, `swipe_left`, `swipe_right`, `short_press`, `long_press`)
+and `finger_id` (as a string). Home Assistant automation:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: esphome.fingerprint_gesture
+    event_data:
+      gesture: swipe_left
+      finger_id: "3"        # optional
+actions:
+  - action: light.toggle
+    target:
+      entity_id: light.garage
+```
+
+If no events arrive, enable *Allow the device to perform Home Assistant actions* in the ESPHome device options in Home Assistant.
 
 ---
 

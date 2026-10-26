@@ -24,6 +24,25 @@ static constexpr uint32_t DEVICE_STARTUP_DELAY_MS = 3000;
 static constexpr uint32_t DEFAULT_NAVIGATION_TIME_MS = 5000;
 static const uint16_t MAX_RESYNC_BYTES = 256;    
 static const uint32_t MAX_RESYNC_TIME_MS = 50;
+// Gesture code (CMD_NAV_EVENT_*) -> name used in YAML and in the Home Assistant event.
+inline std::string gesture_to_string(uint16_t gesture) {
+  switch (gesture) {
+    case CMD_NAV_EVENT_UP:
+      return "swipe_up";
+    case CMD_NAV_EVENT_DOWN:
+      return "swipe_down";
+    case CMD_NAV_EVENT_RIGHT:
+      return "swipe_right";
+    case CMD_NAV_EVENT_LEFT:
+      return "swipe_left";
+    case CMD_NAV_EVENT_PRESS:
+      return "short_press";
+    case CMD_NAV_EVENT_LONG_PRESS:
+      return "long_press";
+    default:
+      return "unknown";
+  }
+}
 typedef enum {
   APP_STATE_WAIT_READY = 0,
   APP_STATE_WAIT_VERSION,
@@ -182,6 +201,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   bool navigation_event_received_ = false;  // first gesture received, exit navigation
   uint32_t navigation_started_at_{0};
   uint32_t navigation_pending_since_{0};
+  uint16_t navigation_finger_id_{0};  // finger whose match opened the navigation window
 
   bool has_power_pin_ = false;
   void sensor_wakeup_();
@@ -219,7 +239,7 @@ class FingerprintFPC2532Component : public PollingComponent, public uart::UARTDe
   CallbackManager<void(uint16_t)> enrollment_scan_callback_;
   CallbackManager<void(uint16_t)> enrollment_done_callback_;
   CallbackManager<void(uint16_t)> enrollment_failed_callback_;
-  CallbackManager<void(uint16_t)> navigation_callback_;
+  CallbackManager<void(uint16_t, uint16_t)> navigation_callback_;  // gesture, finger_id
 
   //--- State Machine Functions/declarations ---
   bool device_ready_;
@@ -293,20 +313,21 @@ class FingerScanInvalidTrigger : public Trigger<uint16_t> {
   }
 };
 
-class NavigationTrigger : public Trigger<uint16_t> {
+class NavigationTrigger : public Trigger<uint16_t, uint16_t> {
  public:
   explicit NavigationTrigger(FingerprintFPC2532Component *parent) {
-    parent->add_on_navigation_callback([this](uint16_t gesture) { this->trigger(gesture); });
+    parent->add_on_navigation_callback(
+        [this](uint16_t gesture, uint16_t finger_id) { this->trigger(gesture, finger_id); });
   }
 };
 
 // Fires only for one specific gesture (on_swipe_*, on_short_press, on_long_press).
-class GestureTrigger : public Trigger<> {
+class GestureTrigger : public Trigger<uint16_t> {
  public:
   GestureTrigger(FingerprintFPC2532Component *parent, uint16_t gesture) {
-    parent->add_on_navigation_callback([this, gesture](uint16_t received) {
+    parent->add_on_navigation_callback([this, gesture](uint16_t received, uint16_t finger_id) {
       if (received == gesture)
-        this->trigger();
+        this->trigger(finger_id);
     });
   }
 };
